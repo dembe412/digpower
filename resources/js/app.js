@@ -1382,18 +1382,33 @@ function renderAdmin() {
 		`)).join('');
 
 		const productRows = products.map((product) => `
-			<div class="admin-table-row product-admin-row">
-				<strong>${safe(product.code)} · ${safe(product.name)}</strong>
-				<label>Price (UGX)<input data-product-field="cost_price" data-product-id="${safe(product.id)}" type="number" min="1" step="1" value="${safe(product.cost_price)}" ${!isOpsAdmin ? 'disabled' : ''}></label>
-				<label>Daily income<input data-product-field="daily_income" data-product-id="${safe(product.id)}" type="number" min="0" step="any" value="${safe(product.daily_income)}" ${!isOpsAdmin ? 'disabled' : ''}></label>
-				<label>Days<input data-product-field="duration_days" data-product-id="${safe(product.id)}" type="number" min="1" value="${safe(product.duration_days || '')}" ${!isOpsAdmin ? 'disabled' : ''}></label>
-				${isOpsAdmin ? `<button class="text-button" data-action="save-product" data-product-id="${safe(product.id)}">Save</button>` : '—'}
+			<div class="admin-table-row product-admin-row" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px;border-bottom:1px solid #222;">
+				<div style="min-width:180px;display:flex;align-items:center;gap:10px;">
+					<img src="${safe(product.image_path || '/images/products/mining/bronze.webp')}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;border:1px solid #333;" alt="">
+					<div>
+						<strong>${safe(product.name)}</strong>
+						<div style="font-size:11px;color:var(--muted);">${safe(product.code)} · ${product.is_active ? '<span style="color:var(--lime);font-weight:600;">Active</span>' : '<span style="color:#e06c75;font-weight:600;">Inactive</span>'}</div>
+					</div>
+				</div>
+				<label style="flex:1;min-width:110px;">Price (UGX)<input data-product-field="cost_price" data-product-id="${safe(product.id)}" type="number" min="1" step="1" value="${safe(product.cost_price)}" ${!isOpsAdmin ? 'disabled' : ''}></label>
+				<label style="flex:1;min-width:110px;">Daily income<input data-product-field="daily_income" data-product-id="${safe(product.id)}" type="number" min="0" step="any" value="${safe(product.daily_income)}" ${!isOpsAdmin ? 'disabled' : ''}></label>
+				<label style="flex:1;min-width:70px;">Days<input data-product-field="duration_days" data-product-id="${safe(product.id)}" type="number" min="1" value="${safe(product.duration_days || '')}" ${!isOpsAdmin ? 'disabled' : ''}></label>
+				${isOpsAdmin ? `
+					<div style="display:flex;gap:6px;align-items:center;">
+						<button class="text-button" data-action="save-product" data-product-id="${safe(product.id)}" title="Save inline updates">Save</button>
+						<button class="text-button" data-action="edit-product-modal" data-product-id="${safe(product.id)}" title="Edit full equipment details">Edit</button>
+						<button class="text-button danger-button" data-action="delete-product" data-product-id="${safe(product.id)}" title="Delete or deactivate equipment">Delete</button>
+					</div>
+				` : '—'}
 			</div>
 		`).join('');
 
 		tabContent = `
 			<section class="admin-section">
-				<div class="section-heading"><div><h2>Mining Equipment Catalog</h2><p>Price, daily return, and duration days for equipment.</p></div></div>
+				<div class="section-heading" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+					<div><h2>Mining Equipment Catalog</h2><p>Price, daily return, duration, and status for equipment.</p></div>
+					${isOpsAdmin ? `<button class="primary-button" data-action="new-product-modal" style="font-size:12px;padding:8px 16px;white-space:nowrap;">➕ Add Equipment</button>` : ''}
+				</div>
 				<div class="admin-table">${productRows || emptyPanel('No products configured.')}</div>
 			</section>
 
@@ -1953,6 +1968,61 @@ document.addEventListener('click', async (event) => {
 			await api(`admin/products/${productId}`, { method: 'PUT', body: JSON.stringify({ code: product.code, name: product.name, image_path: product.image_path, tagline: product.tagline, sort_order: product.sort_order, is_active: product.is_active, ...payload }) });
 			toast('Product updated.'); await loadPage('admin');
 		}
+		else if (action === 'new-product-modal') {
+			showModal(`
+				<p class="eyebrow">Catalog Management</p>
+				<h2 id="modal-title">Add New Equipment</h2>
+				<p class="modal-intro">Create a new equipment package for clients to purchase.</p>
+				<form class="form-stack" id="product-manage-form">
+					<label class="form-field">Equipment Name<input name="name" placeholder="e.g. Platinum Miner" required maxlength="120"></label>
+					<label class="form-field">Unique Code<input name="code" placeholder="e.g. PLATINUM" required maxlength="50" style="text-transform:uppercase;"></label>
+					<label class="form-field">Price (UGX)<input name="cost_price" type="number" step="1" min="1" placeholder="e.g. 150000" required></label>
+					<label class="form-field">Daily Income (UGX)<input name="daily_income" type="number" step="any" min="0" placeholder="e.g. 4500" required></label>
+					<label class="form-field">Duration (Days)<input name="duration_days" type="number" min="1" max="3650" value="30" placeholder="e.g. 30"></label>
+					<label class="form-field">Image URL / Path<input name="image_path" value="/images/products/mining/bronze.webp" placeholder="/images/products/mining/bronze.webp"></label>
+					<label class="form-field">Tagline<input name="tagline" value="Indicative earnings only; all product activation is manually reviewed."></label>
+					<label class="form-field">Sort Order<input name="sort_order" type="number" min="0" value="1"></label>
+					<label class="form-check"><input type="checkbox" name="is_active" checked><span>Active and visible in catalog</span></label>
+					<p class="form-note" data-form-error></p>
+					<button class="primary-button" type="submit">Create Equipment</button>
+				</form>
+			`, 'product-manage');
+		}
+		else if (action === 'edit-product-modal') {
+			const productId = button.dataset.productId;
+			const product = state.admin.products.find((item) => String(item.id) === productId);
+			if (!product) return;
+			showModal(`
+				<p class="eyebrow">Catalog Management</p>
+				<h2 id="modal-title">Edit ${safe(product.name)}</h2>
+				<p class="modal-intro">Modify equipment specifications, price, output, and visibility.</p>
+				<form class="form-stack" id="product-manage-form" data-product-id="${safe(product.id)}">
+					<label class="form-field">Equipment Name<input name="name" value="${safe(product.name)}" required maxlength="120"></label>
+					<label class="form-field">Unique Code<input name="code" value="${safe(product.code)}" required maxlength="50" style="text-transform:uppercase;"></label>
+					<label class="form-field">Price (UGX)<input name="cost_price" type="number" step="1" min="1" value="${safe(product.cost_price)}" required></label>
+					<label class="form-field">Daily Income (UGX)<input name="daily_income" type="number" step="any" min="0" value="${safe(product.daily_income)}" required></label>
+					<label class="form-field">Duration (Days)<input name="duration_days" type="number" min="1" max="3650" value="${safe(product.duration_days || '')}" placeholder="Indefinite if empty"></label>
+					<label class="form-field">Image URL / Path<input name="image_path" value="${safe(product.image_path || '')}"></label>
+					<label class="form-field">Tagline<input name="tagline" value="${safe(product.tagline || '')}"></label>
+					<label class="form-field">Sort Order<input name="sort_order" type="number" min="0" value="${safe(product.sort_order ?? 0)}"></label>
+					<label class="form-check"><input type="checkbox" name="is_active" ${product.is_active ? 'checked' : ''}><span>Active and visible in catalog</span></label>
+					<p class="form-note" data-form-error></p>
+					<button class="primary-button" type="submit">Save Changes</button>
+				</form>
+			`, 'product-manage');
+		}
+		else if (action === 'delete-product') {
+			const productId = button.dataset.productId;
+			const product = state.admin.products.find((item) => String(item.id) === productId);
+			if (!window.confirm(`Delete "${product?.name || 'this equipment'}"? If clients already hold purchases for this equipment, it will be safely deactivated instead.`)) return;
+			try {
+				const res = await api(`admin/products/${productId}`, { method: 'DELETE' });
+				toast(res.message || 'Product removed.');
+				await loadPage('admin');
+			} catch (error) {
+				toast(error.message);
+			}
+		}
 		else if (action === 'switch-admin-tab') {
 			state.adminTab = button.dataset.adminTab;
 			renderAdmin();
@@ -2269,6 +2339,41 @@ document.addEventListener('submit', async (event) => {
 		} catch (error) { toast(error.message); }
 	}
 	else if (form.id === 'auth-form') { event.preventDefault(); await submitAuth(form); }
+	else if (form.id === 'product-manage-form') {
+		event.preventDefault();
+		const button = $('button[type="submit"]', form);
+		const errorElement = $('[data-form-error]', form);
+		if (button) button.disabled = true;
+		const productId = form.dataset.productId;
+		const formData = new FormData(form);
+		const payload = {
+			name: formData.get('name'),
+			code: formData.get('code')?.trim().toUpperCase(),
+			cost_price: formData.get('cost_price'),
+			daily_income: formData.get('daily_income'),
+			duration_days: formData.get('duration_days') || null,
+			image_path: formData.get('image_path') || '/images/products/mining/bronze.webp',
+			tagline: formData.get('tagline') || null,
+			sort_order: Number(formData.get('sort_order') || 0),
+			is_active: form.elements.is_active?.checked ? true : false,
+		};
+		try {
+			if (productId) {
+				await api(`admin/products/${productId}`, { method: 'PUT', body: JSON.stringify(payload) });
+				toast('Equipment updated successfully.');
+			} else {
+				await api('admin/products', { method: 'POST', body: JSON.stringify(payload) });
+				toast('New equipment added successfully.');
+			}
+			closeModal();
+			await loadPage('admin');
+		} catch (error) {
+			if (errorElement) errorElement.textContent = error.message;
+			else toast(error.message);
+		} finally {
+			if (button) button.disabled = false;
+		}
+	}
 	else if (form.id === 'create-admin-form') {
 		event.preventDefault();
 		const errorElement = $('[data-form-error]', form);

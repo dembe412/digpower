@@ -57,21 +57,24 @@ class DatabaseSeeder extends Seeder
             7 => ['COLORED-DIAMOND', 'Colored Diamond', '/images/products/mining/colored-diamond.webp'],
             8 => ['GREEN-MINERAL', 'Green Mineral', '/images/products/mining/green-mineral.webp'],
         ];
-        foreach ($tiers as [$lvl, $name, $min, $max, $y, $win]) {
-            if ($lvl === 0) {
-                continue;
+        if (Product::count() === 0) {
+            foreach ($tiers as [$lvl, $name, $min, $max, $y, $win]) {
+                if ($lvl === 0) {
+                    continue;
+                }
+                [$code, $mineralName, $image] = $minerals[$lvl];
+                Product::create([
+                    'code' => $code,
+                    'name' => $mineralName,
+                    'cost_price' => $min,
+                    'daily_income' => $win ? ($min * $y / 100 / $win) : 0,
+                    'duration_days' => $win,
+                    'image_path' => $image,
+                    'tagline' => 'Indicative earnings only; all product activation is manually reviewed.',
+                    'sort_order' => $lvl,
+                    'is_active' => true,
+                ]);
             }
-            [$code, $mineralName, $image] = $minerals[$lvl];
-            Product::updateOrCreate(['code' => $code], [
-                'name' => $mineralName,
-                'cost_price' => $min,
-                'daily_income' => $win ? ($min * $y / 100 / $win) : 0,
-                'duration_days' => $win,
-                'image_path' => $image,
-                'tagline' => 'Indicative earnings only; all product activation is manually reviewed.',
-                'sort_order' => $lvl,
-                'is_active' => true,
-            ]);
         }
 
         $isProduction = app()->isProduction();

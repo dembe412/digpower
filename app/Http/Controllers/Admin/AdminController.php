@@ -26,6 +26,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use RuntimeException;
 
 class AdminController extends Controller
@@ -504,8 +505,9 @@ class AdminController extends Controller
         abort_if($r->user()->isSuperAdmin(), 403, 'Super administrators have overarching oversight and cannot modify products.');
         abort_unless($r->user()->isOperationsAdmin(), 403, 'Only operational administrators can modify products.');
 
+        $productId = $product?->id;
         $d = $r->validate([
-            'code' => 'required|string|max:50',
+            'code' => ['required', 'string', 'max:50', Rule::unique('products', 'code')->ignore($productId)],
             'name' => 'required|string|max:120',
             'cost_price' => 'required|numeric|min:0.01',
             'daily_income' => 'required|numeric|min:0',
@@ -515,10 +517,40 @@ class AdminController extends Controller
             'sort_order' => 'nullable|integer|min:0|max:65535',
             'is_active' => 'boolean',
         ]);
+
+        if (empty($d['image_path'])) {
+            $d['image_path'] = '/images/products/mining/bronze.webp';
+        }
+
         $saved = $product ? tap($product)->update($d) : Product::create($d);
         AuditLog::record($r->user()->id, $product ? 'product.updated' : 'product.created', $saved);
 
         return response()->json($saved->fresh(), $product ? 200 : 201);
+    }
+
+    public function deleteProduct(Request $r, Product $product)
+    {
+        abort_if($r->user()->isSuperAdmin(), 403, 'Super administrators have overarching oversight and cannot modify products.');
+        abort_unless($r->user()->isOperationsAdmin(), 403, 'Only operational administrators can modify products.');
+
+        if ($product->purchases()->exists()) {
+            $product->update(['is_active' => false]);
+            AuditLog::record($r->user()->id, 'product.deactivated', $product);
+
+            return response()->json([
+                'status' => 'deactivated',
+                'message' => 'Product has existing user purchases and was deactivated instead of permanently deleted.',
+                'product' => $product->fresh(),
+            ]);
+        }
+
+        $product->delete();
+        AuditLog::record($r->user()->id, 'product.deleted', $product);
+
+        return response()->json([
+            'status' => 'deleted',
+            'message' => 'Product deleted successfully.',
+        ]);
     }
 
     public function purchases(Request $r)

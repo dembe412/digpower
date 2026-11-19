@@ -265,4 +265,61 @@ class AdminRolesThreeTierTest extends TestCase
 
         $this->assertEquals(1, $this->clientWithoutProduct->purchases()->where('status', 'active')->count());
     }
+
+    public function test_operations_admin_can_create_update_and_delete_products(): void
+    {
+        Sanctum::actingAs($this->opsAdmin);
+
+        // 1. Create new product
+        $createRes = $this->postJson('/api/admin/products', [
+            'code' => 'CUSTOM-MINER-1',
+            'name' => 'Custom Titanium Miner',
+            'cost_price' => 120000,
+            'daily_income' => 3500,
+            'duration_days' => 45,
+            'image_path' => '/images/products/mining/bronze.webp',
+            'tagline' => 'Custom miner tagline',
+            'sort_order' => 10,
+            'is_active' => true,
+        ]);
+        $createRes->assertCreated()
+            ->assertJsonPath('code', 'CUSTOM-MINER-1')
+            ->assertJsonPath('name', 'Custom Titanium Miner');
+        $newProductId = $createRes->json('id');
+
+        // 2. Update the product
+        $updateRes = $this->putJson("/api/admin/products/{$newProductId}", [
+            'code' => 'CUSTOM-MINER-1',
+            'name' => 'Custom Titanium Miner v2',
+            'cost_price' => 135000,
+            'daily_income' => 4000,
+            'duration_days' => 50,
+            'image_path' => '/images/products/mining/bronze.webp',
+            'tagline' => 'Updated tagline',
+            'sort_order' => 11,
+            'is_active' => true,
+        ]);
+        $updateRes->assertOk()
+            ->assertJsonPath('name', 'Custom Titanium Miner v2')
+            ->assertJsonPath('cost_price', '135000.00');
+
+        // 3. Delete product with no purchases -> permanently deleted
+        $deleteRes = $this->deleteJson("/api/admin/products/{$newProductId}");
+        $deleteRes->assertOk()->assertJsonPath('status', 'deleted');
+        $this->assertDatabaseMissing('products', ['id' => $newProductId]);
+
+        // 4. Delete product with existing purchases -> deactivated instead of deleted
+        $deletePurchasedRes = $this->deleteJson("/api/admin/products/{$this->product->id}");
+        $deletePurchasedRes->assertOk()->assertJsonPath('status', 'deactivated');
+        $this->assertDatabaseHas('products', ['id' => $this->product->id, 'is_active' => false]);
+
+        // 5. Super admin cannot modify or delete products (oversight separation)
+        Sanctum::actingAs($this->superAdmin);
+        $this->postJson('/api/admin/products', [
+            'code' => 'SUPER-FAIL',
+            'name' => 'Super Miner',
+            'cost_price' => 50000,
+            'daily_income' => 1000,
+        ])->assertForbidden();
+    }
 }

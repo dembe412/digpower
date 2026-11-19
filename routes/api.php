@@ -120,6 +120,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'active', 'admin'])->group(f
     Route::get('products', [AdminController::class, 'products']);
     Route::post('products', [AdminController::class, 'saveProduct']);
     Route::put('products/{product}', [AdminController::class, 'saveProduct']);
+    Route::delete('products/{product}', [AdminController::class, 'deleteProduct']);
     Route::get('purchases', [AdminController::class, 'purchases']);
     Route::post('purchases/{purchase}/activate', [AdminController::class, 'activatePurchase']);
     Route::post('purchases/{purchase}/reject', [AdminController::class, 'rejectPurchase']);
