@@ -13,7 +13,7 @@ return [
 
     'withdrawal' => [
         'min' => env('WITHDRAW_MIN', '5000'),
-        'fee_pct' => env('WITHDRAW_FEE_PCT', '1'),
+        'fee_pct' => env('WITHDRAW_FEE_PCT', '7'),
         'networks' => ['TRC20', 'ERC20', 'BEP20'],
     ],
 

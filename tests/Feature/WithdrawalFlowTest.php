@@ -33,8 +33,8 @@ class WithdrawalFlowTest extends TestCase
         $response->assertCreated()
             ->assertJsonPath('status', 'pending')
             ->assertJsonPath('amount', '50000.000000')
-            ->assertJsonPath('fee', '500.000000')
-            ->assertJsonPath('net_amount', '49500.000000');
+            ->assertJsonPath('fee', '3500.000000')
+            ->assertJsonPath('net_amount', '46500.000000');
         $this->assertSame('50000', (string) $member->fresh()->invest_balance);
         $this->assertDatabaseHas('withdrawals', [
             'user_id' => $member->id,
@@ -66,8 +66,8 @@ class WithdrawalFlowTest extends TestCase
             ->assertJsonPath('phone', '0771234567')
             ->assertJsonPath('payout_method', 'mtn')
             ->assertJsonPath('amount', '50000.000000')
-            ->assertJsonPath('fee', '500.000000')
-            ->assertJsonPath('net_amount', '49500.000000');
+            ->assertJsonPath('fee', '3500.000000')
+            ->assertJsonPath('net_amount', '46500.000000');
         $this->assertSame('50000', (string) $member->fresh()->invest_balance);
         $this->assertDatabaseHas('withdrawals', [
             'user_id' => $member->id,
