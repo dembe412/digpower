@@ -997,7 +997,7 @@ function renderAdmin() {
 		<div class="admin-nav-tabs">
 			<button class="admin-nav-tab ${activeTab === 'clients' ? 'active' : ''}" data-action="switch-admin-tab" data-admin-tab="clients">👥 Customers & Machines</button>
 			${!isCustomerManager ? `<button class="admin-nav-tab ${activeTab === 'transactions' ? 'active' : ''}" data-action="switch-admin-tab" data-admin-tab="transactions">💳 Transactions & Approvals</button>` : ''}
-			<button class="admin-nav-tab ${activeTab === 'catalog' ? 'active' : ''}" data-action="switch-admin-tab" data-admin-tab="catalog">📦 Equipment & Pricing</button>
+			${!isCustomerManager ? `<button class="admin-nav-tab ${activeTab === 'catalog' ? 'active' : ''}" data-action="switch-admin-tab" data-admin-tab="catalog">📦 Equipment & Pricing</button>` : ''}
 			${isSuperAdmin ? `<button class="admin-nav-tab ${activeTab === 'admins' ? 'active' : ''}" data-action="switch-admin-tab" data-admin-tab="admins">🛡️ Staff Roster</button>` : ''}
 		</div>
 	`;
@@ -1016,8 +1016,8 @@ function renderAdmin() {
 						<div class="mini-lock-info">
 							<img class="mini-lock-thumb" src="${safe(p.image_url || '/images/products/mining/bronze.webp')}" alt="">
 							<div>
-								<p><b>${safe(p.product_name)}</b> (${amount(p.principal)} UGX)</p>
-								<small>${p.days_left !== null ? p.days_left + ' days left' : 'Ongoing'} · ${amount(p.daily_income)} UGX/day · ${amount(p.earned_so_far)} UGX earned</small>
+								<p><b>${safe(p.product_name)}</b>${!isCustomerManager && p.principal !== null ? ` (${amount(p.principal)} UGX)` : ''}</p>
+								<small>${p.days_left !== null ? p.days_left + ' days left' : 'Ongoing'} · ${amount(p.daily_income)} UGX/day${!isCustomerManager && p.earned_so_far !== null ? ` · ${amount(p.earned_so_far)} UGX earned` : ''}</small>
 							</div>
 						</div>
 					</div>
@@ -1034,16 +1034,21 @@ function renderAdmin() {
 						<div class="client-summary-meta">
 							<span>${safe(client.phone || client.email || '—')}</span>
 							<span><b>${client.active_products_count || 0}</b> machines</span>
-							<span>${amount(client.total_earned)} UGX earned</span>
+							${!isCustomerManager && client.total_earned !== null ? `<span>${amount(client.total_earned)} UGX earned</span>` : ''}
 						</div>
 					</summary>
 					<div class="client-body">
+						${!isCustomerManager ? `
 						<div class="client-stats-strip">
 							<span>Invest Balance: <b>${amount(client.invest_balance)} UGX</b></span>
 							<span>Commission: <b>${amount(client.commission_balance)} UGX</b></span>
 							<span>Total Held: <b>${amount(client.total_balance)} UGX</b></span>
 							<span>Joined: <b>${client.created_at ? new Date(client.created_at).toLocaleDateString() : '—'}</b></span>
-						</div>
+						</div>` : `
+						<div class="client-stats-strip">
+							<span>Joined: <b>${client.created_at ? new Date(client.created_at).toLocaleDateString() : '—'}</b></span>
+							<span>Status: <b>${client.is_active ? 'Active' : 'Disabled'}</b></span>
+						</div>`}
 
 						<div>
 							<strong style="display:block;margin-bottom:6px;font-size:12px;color:var(--ink)">Active Equipment</strong>
@@ -1075,7 +1080,7 @@ function renderAdmin() {
 				<div class="metric-card"><span>Total Clients</span><strong>${amount(clientStats.total || 0, 0)}</strong></div>
 				<div class="metric-card"><span>With Equipment</span><strong>${amount(clientStats.with_product || 0, 0)}</strong></div>
 				<div class="metric-card"><span>Without Equipment</span><strong>${amount(clientStats.without_product || 0, 0)}</strong></div>
-				<div class="metric-card"><span>Active Equipment Value</span><strong>${amount(clientStats.active_value || 0)} UGX</strong></div>
+				${!isCustomerManager ? `<div class="metric-card"><span>Active Equipment Value</span><strong>${amount(clientStats.active_value || 0)} UGX</strong></div>` : ''}
 			</section>
 
 			<div class="filter-pills">
@@ -1388,7 +1393,7 @@ async function loadPage(page = state.page) {
 			if (clientSearch) clientParams.set('q', clientSearch);
 
 			const reqs = [
-				api('admin/overview').catch(() => ({})),
+				(role === 'super_admin' || role === 'admin') ? api('admin/overview').catch(() => ({})) : Promise.resolve({}),
 				api('admin/products').catch(() => []),
 				api(`admin/users?${clientParams.toString()}`).catch(() => ({ clients: { data: [] }, stats: {} })),
 			];

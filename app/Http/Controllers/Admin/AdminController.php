@@ -31,8 +31,10 @@ use RuntimeException;
 class AdminController extends Controller
 {
     /** Solvency view: what the platform owes users vs. what it has received. */
-    public function overview()
+    public function overview(Request $r)
     {
+        abort_unless($r->user()->canAccessTransactions(), 403, 'Customer managers do not have access to financial overview.');
+
         $received = (string) (Deposit::where('status', 'confirmed')->sum('amount') ?: '0');
         $paid = (string) (Withdrawal::where('status', 'completed')->sum('net_amount') ?: '0');
         $owed = bcadd((string) User::sum('invest_balance'), (string) User::sum('commission_balance'), 6);
@@ -229,19 +231,20 @@ class AdminController extends Controller
             $query->whereDoesntHave('purchases', fn ($p) => $p->where('status', 'active'));
         }
 
+        $isCustomerManager = $r->user()->isCustomerManager();
         $totalClients = User::where('is_admin', false)->count();
         $clientsWithProduct = User::where('is_admin', false)->whereHas('purchases', fn ($p) => $p->where('status', 'active'))->count();
         $clientsWithoutProduct = max(0, $totalClients - $clientsWithProduct);
-        $totalActiveValue = (string) (Purchase::where('status', 'active')->sum('principal') ?: '0');
+        $totalActiveValue = $isCustomerManager ? null : (string) (Purchase::where('status', 'active')->sum('principal') ?: '0');
 
         $paginated = $query->with(['purchases' => fn ($p) => $p->where('status', 'active')->with('product')])
             ->latest()
             ->paginate(30);
 
-        $paginated->getCollection()->transform(function (User $client) {
+        $paginated->getCollection()->transform(function (User $client) use ($isCustomerManager) {
             $activePurchases = $client->purchases->where('status', 'active');
-            $earned = $activePurchases->sum(fn ($p) => (float) $p->earnedAmount());
-            $principal = $activePurchases->sum(fn ($p) => (float) $p->principal);
+            $earned = $isCustomerManager ? null : $activePurchases->sum(fn ($p) => (float) $p->earnedAmount());
+            $principal = $isCustomerManager ? null : $activePurchases->sum(fn ($p) => (float) $p->principal);
 
             return [
                 'id' => $client->id,
@@ -251,14 +254,14 @@ class AdminController extends Controller
                 'is_active' => (bool) $client->is_active,
                 'archived_at' => $client->archived_at?->toIso8601String(),
                 'created_at' => $client->created_at?->toIso8601String(),
-                'invest_balance' => (string) $client->invest_balance,
-                'commission_balance' => (string) $client->commission_balance,
-                'total_balance' => bcadd((string) $client->invest_balance, (string) $client->commission_balance, 2),
+                'invest_balance' => $isCustomerManager ? null : (string) $client->invest_balance,
+                'commission_balance' => $isCustomerManager ? null : (string) $client->commission_balance,
+                'total_balance' => $isCustomerManager ? null : bcadd((string) $client->invest_balance, (string) $client->commission_balance, 2),
                 'has_active_product' => $activePurchases->isNotEmpty(),
                 'active_products_count' => $activePurchases->count(),
-                'active_principal' => (string) $principal,
-                'total_earned' => (string) $earned,
-                'active_products' => $activePurchases->map(function ($p) {
+                'active_principal' => $principal !== null ? (string) $principal : null,
+                'total_earned' => $earned !== null ? (string) $earned : null,
+                'active_products' => $activePurchases->map(function ($p) use ($isCustomerManager) {
                     $daysLeft = $p->duration_days && $p->activated_at ? max(0, $p->duration_days - (int) $p->activated_at->diffInDays(now())) : null;
 
                     return [
@@ -267,11 +270,11 @@ class AdminController extends Controller
                         'product_name' => $p->product?->name ?? 'Mining Equipment',
                         'product_code' => $p->product?->code,
                         'image_url' => $p->product?->imageUrl(),
-                        'principal' => (string) $p->principal,
+                        'principal' => $isCustomerManager ? null : (string) $p->principal,
                         'daily_income' => (string) $p->daily_income,
                         'duration_days' => $p->duration_days,
                         'days_left' => $daysLeft,
-                        'earned_so_far' => (string) $p->earnedAmount(),
+                        'earned_so_far' => $isCustomerManager ? null : (string) $p->earnedAmount(),
                         'activated_at' => $p->activated_at?->toFormattedDateString(),
                     ];
                 })->values(),
@@ -571,6 +574,7 @@ class AdminController extends Controller
     public function toggleUser(Request $r, User $user)
     {
         abort_if($r->user()->isSuperAdmin(), 403, 'Super administrators cannot modify client accounts.');
+        abort_unless($r->user()->isOperationsAdmin(), 403, 'Only operational administrators can modify client accounts.');
         abort_if($user->is_admin, 422);
         abort_if($user->archived_at, 422, 'Archived clients cannot be reactivated.');
         $user->update(['is_active' => ! $user->is_active]);
@@ -585,6 +589,7 @@ class AdminController extends Controller
     public function archiveUser(Request $r, User $user)
     {
         abort_if($r->user()->isSuperAdmin(), 403, 'Super administrators cannot modify client accounts.');
+        abort_unless($r->user()->isOperationsAdmin(), 403, 'Only operational administrators can delete client accounts.');
         abort_if($user->is_admin, 422, 'Administrator accounts cannot be archived.');
         abort_if($user->archived_at, 422, 'Client is already archived.');
 

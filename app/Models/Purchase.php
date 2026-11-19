@@ -45,7 +45,7 @@ class Purchase extends Model
         }
 
         $end = $at ? Carbon::instance($at) : now();
-        $days = max(0, $this->activated_at->diffInDays($end));
+        $days = (int) max(0, $this->activated_at->diffInDays($end));
 
         return bcmul((string) $this->daily_income, (string) $days, 6);
     }
