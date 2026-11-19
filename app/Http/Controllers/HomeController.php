@@ -59,16 +59,26 @@ class HomeController extends Controller
     private function withdrawLog()
     {
         return Withdrawal::with('user:id,email,phone,avatar_url')
+            ->whereHas('user')
             ->where('status', 'completed')
             ->latest()->limit(5)->get()
-            ->map(fn ($w) => [
-                'user' => $w->user->maskedIdentity(),
-                'avatar_url' => $w->user->avatar_url,
-                'avatar_initial' => strtoupper(substr($w->user->maskedIdentity(), 0, 1)),
-                'avatar_variant' => ($w->user_id % 6) + 1,
-                'amount' => number_format((float) $w->net_amount, 6, '.', ''),
-                'at' => $w->updated_at,
-            ]);
+            ->map(function ($w) {
+                if (! $w->user) {
+                    return null;
+                }
+                $masked = $w->user->maskedIdentity();
+
+                return [
+                    'user' => $masked,
+                    'avatar_url' => $w->user->avatar_url,
+                    'avatar_initial' => strtoupper(substr($masked, 0, 1)),
+                    'avatar_variant' => ($w->user_id % 6) + 1,
+                    'amount' => number_format((float) $w->net_amount, 6, '.', ''),
+                    'at' => $w->updated_at,
+                ];
+            })
+            ->filter()
+            ->values();
     }
 
     /** Top 10 active miners and round leaders under the Stake Rounds criteria with masked identities. */

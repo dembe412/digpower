@@ -47,4 +47,35 @@ class AuthFlowTest extends TestCase
             'password' => 'correct-horse-battery',
         ])->assertOk()->assertJsonStructure(['token', 'user' => ['id', 'identity_masked']]);
     }
+
+    public function test_registration_with_invite_code_links_to_referrer_and_updates_team_network(): void
+    {
+        $referrer = User::factory()->create([
+            'email' => 'sponsor@example.test',
+            'invite_code' => 'SPON01',
+            'is_active' => true,
+        ]);
+
+        $response = $this->postJson('/api/auth/register', [
+            'email' => 'recruit@example.test',
+            'password' => 'correct-horse-battery',
+            'password_confirmation' => 'correct-horse-battery',
+            'invite_code' => 'SPON01',
+            'accept_terms' => true,
+            'accept_risk' => true,
+        ]);
+
+        $response->assertCreated();
+        $this->assertDatabaseHas('users', [
+            'email' => 'recruit@example.test',
+            'referrer_id' => $referrer->id,
+        ]);
+
+        $recruit = User::where('email', 'recruit@example.test')->first();
+        $this->assertNotNull($recruit->invite_code);
+
+        \Laravel\Sanctum\Sanctum::actingAs($referrer);
+        $teamRes = $this->getJson('/api/team')->assertOk();
+        $this->assertEquals(1, $teamRes->json('stats.team_size'));
+    }
 }

@@ -119,6 +119,10 @@ async function copyToClipboard(text) {
 }
 
 function getShareInviteUrl() {
+	const code = state.team?.invite_code || state.profile?.invite_code || '';
+	if (code) {
+		return `${window.location.origin}/#/reg?invite_code=${encodeURIComponent(code)}`;
+	}
 	return state.profile?.invite_link || state.team?.invite_link || window.location.origin;
 }
 
@@ -129,15 +133,17 @@ function renderSocialShareButtons(includeNativeShare = false) {
 
 function extractInviteCodeFromUrl() {
 	const searchParams = new URLSearchParams(window.location.search);
-	const fromSearch = searchParams.get('invite_code');
+	const fromSearch = searchParams.get('invite_code') || searchParams.get('ref') || searchParams.get('code') || searchParams.get('invite');
 	if (fromSearch) return fromSearch.trim();
 	const hash = window.location.hash || '';
 	const queryIndex = hash.indexOf('?');
 	if (queryIndex !== -1) {
 		const hashParams = new URLSearchParams(hash.slice(queryIndex + 1));
-		const fromHash = hashParams.get('invite_code');
+		const fromHash = hashParams.get('invite_code') || hashParams.get('ref') || hashParams.get('code') || hashParams.get('invite');
 		if (fromHash) return fromHash.trim();
 	}
+	const slashMatch = hash.match(/#\/(?:reg|register|invite)\/([a-zA-Z0-9_-]+)/);
+	if (slashMatch && slashMatch[1]) return slashMatch[1].trim();
 	return '';
 }
 
