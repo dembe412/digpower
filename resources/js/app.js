@@ -149,6 +149,8 @@ function openInviteRegistrationIfPresent() {
 		authForm('register', inviteCode);
 	}
 }
+
+const formatDailyOutput = (val) => { if (!val) return '+0 UGX'; const clean = String(val).replace(/^\++/, '').trim(); return `+${clean}`; };
 const productImages = {
 	1: '/images/products/mining/bronze.webp',
 	2: '/images/products/mining/graphite.webp',
@@ -340,6 +342,82 @@ async function shareToSocial(platform) {
 	}
 }
 
+function renderTopMinersHtml(topMinersList = []) {
+	const list = (topMinersList || []).slice(0, 10);
+	const podiumMiners = list.slice(0, 3);
+
+	const podiumHtml = podiumMiners.length ? `
+		<div class="miners-grid-podium">
+			${podiumMiners.map((m) => `
+				<div class="podium-card rank-${m.rank}">
+					<span class="podium-rank-badge">${m.rank === 1 ? '🥇 #1' : m.rank === 2 ? '🥈 #2' : '🥉 #3'}</span>
+					<div class="podium-miner-meta">
+						<span class="withdraw-avatar withdraw-avatar-${m.avatar_variant || 1}" style="position:relative;overflow:hidden;">
+							<span style="display:grid;place-items:center;width:100%;height:100%;">${safe(m.avatar_initial || 'M')}</span>
+							${m.avatar_url ? `<img src="${safe(m.avatar_url)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" onerror="this.remove()">` : ''}
+						</span>
+						<div style="min-width:0;">
+							<div class="podium-miner-name">${safe(m.user)}</div>
+							<div class="podium-machine">${safe(m.machine)}</div>
+						</div>
+					</div>
+					<div class="podium-stats">
+						<div><span>Daily:</span> <strong>${formatDailyOutput(m.daily_output)}</strong></div>
+						<div><span>Hashrate:</span> <b style="color:var(--lime);">${safe(m.hashrate)}</b></div>
+					</div>
+				</div>
+			`).join('')}
+		</div>
+	` : '';
+
+	const minerRowsHtml = list.map((m) => `
+		<div class="miner-row">
+			<span class="miner-rank rank-${m.rank}">${m.rank === 1 ? '🥇' : m.rank === 2 ? '🥈' : m.rank === 3 ? '🥉' : `#${m.rank}`}</span>
+			<div class="miner-info">
+				<span class="withdraw-avatar withdraw-avatar-${m.avatar_variant || 1}" style="position:relative;overflow:hidden;width:28px;height:28px;font-size:10px;">
+					<span style="display:grid;place-items:center;width:100%;height:100%;">${safe(m.avatar_initial || 'M')}</span>
+					${m.avatar_url ? `<img src="${safe(m.avatar_url)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" onerror="this.remove()">` : ''}
+				</span>
+				<strong>${safe(m.user)}</strong>
+			</div>
+			<div class="miner-equipment">
+				<strong>${safe(m.machine)}</strong>
+				<small>${safe(m.hashrate)}</small>
+			</div>
+			<div class="miner-output">
+				<strong>${formatDailyOutput(m.daily_output)}</strong>
+				<small>Daily output</small>
+			</div>
+			<div class="miner-total">
+				<b style="color:var(--ink);">${safe(m.total_mined)}</b>
+				<small style="display:block;color:var(--muted);font-size:9px;">Total mined</small>
+			</div>
+			<div class="miner-status">
+				<span class="tag tag-good" style="font-size:9px;padding:3px 6px;">⚡ Mining Round</span>
+			</div>
+		</div>
+	`).join('');
+
+	return `
+		<article class="top-miners-card">
+			<div class="top-miners-header">
+				<div class="top-miners-title">
+					<span class="coin-badge" style="background:#25D36620;color:#25D366;border-color:#25D36650;">⚡</span>
+					<div>
+						<h3>Top Miners &amp; Round Leaders</h3>
+						<p>Real-time Stake Rounds winners, hashrate and mining output</p>
+					</div>
+				</div>
+				<button class="primary-button" data-page="mining" style="padding:6px 14px;font-size:11px;min-height:30px;">Enter Stake Rounds ⚡</button>
+			</div>
+			${podiumHtml}
+			<div class="miners-list-table">
+				${minerRowsHtml || emptyPanel('No active round miners reporting yet.')}
+			</div>
+		</article>
+	`;
+}
+
 function renderHome() {
 	const home = state.home;
 	const wallet = home?.wallets;
@@ -385,79 +463,7 @@ function renderHome() {
 		</article>
 	`;
 
-	const topMinersList = home?.top_miners || [];
-	const podiumMiners = topMinersList.slice(0, 3);
-
-	const podiumHtml = podiumMiners.length ? `
-		<div class="miners-grid-podium">
-			${podiumMiners.map((m) => `
-				<div class="podium-card rank-${m.rank}">
-					<span class="podium-rank-badge">${m.rank === 1 ? '🥇 #1' : m.rank === 2 ? '🥈 #2' : '🥉 #3'}</span>
-					<div class="podium-miner-meta">
-						<span class="withdraw-avatar withdraw-avatar-${m.avatar_variant || 1}" style="position:relative;overflow:hidden;">
-							<span style="display:grid;place-items:center;width:100%;height:100%;">${safe(m.avatar_initial || 'M')}</span>
-							${m.avatar_url ? `<img src="${safe(m.avatar_url)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" onerror="this.remove()">` : ''}
-						</span>
-						<div style="min-width:0;">
-							<div class="podium-miner-name">${safe(m.user)}</div>
-							<div class="podium-machine">${safe(m.machine)}</div>
-						</div>
-					</div>
-					<div class="podium-stats">
-						<div><span>Daily:</span> <strong>+${safe(m.daily_output)}</strong></div>
-						<div><span>Hashrate:</span> <b style="color:var(--lime);">${safe(m.hashrate)}</b></div>
-					</div>
-				</div>
-			`).join('')}
-		</div>
-	` : '';
-
-	const minerRowsHtml = topMinersList.map((m) => `
-		<div class="miner-row">
-			<span class="miner-rank rank-${m.rank}">${m.rank === 1 ? '🥇' : m.rank === 2 ? '🥈' : m.rank === 3 ? '🥉' : `#${m.rank}`}</span>
-			<div class="miner-info">
-				<span class="withdraw-avatar withdraw-avatar-${m.avatar_variant || 1}" style="position:relative;overflow:hidden;width:28px;height:28px;font-size:10px;">
-					<span style="display:grid;place-items:center;width:100%;height:100%;">${safe(m.avatar_initial || 'M')}</span>
-					${m.avatar_url ? `<img src="${safe(m.avatar_url)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" onerror="this.remove()">` : ''}
-				</span>
-				<strong>${safe(m.user)}</strong>
-			</div>
-			<div class="miner-equipment">
-				<strong>${safe(m.machine)}</strong>
-				<small>${safe(m.hashrate)}</small>
-			</div>
-			<div class="miner-output">
-				<strong>+${safe(m.daily_output)}</strong>
-				<small>Daily output</small>
-			</div>
-			<div class="miner-total">
-				<b style="color:var(--ink);">${safe(m.total_mined)}</b>
-				<small style="display:block;color:var(--muted);font-size:9px;">Total mined</small>
-			</div>
-			<div class="miner-status">
-				<span class="tag tag-good" style="font-size:9px;padding:3px 6px;">⚡ Mining Round</span>
-			</div>
-		</div>
-	`).join('');
-
-	const topMinersCard = `
-		<article class="top-miners-card">
-			<div class="top-miners-header">
-				<div class="top-miners-title">
-					<span class="coin-badge" style="background:#25D36620;color:#25D366;border-color:#25D36650;">⚡</span>
-					<div>
-						<h3>Top Miners &amp; Round Leaders</h3>
-						<p>Real-time Stake Rounds winners, hashrate and mining output</p>
-					</div>
-				</div>
-				<button class="primary-button" data-page="mining" style="padding:6px 14px;font-size:11px;min-height:30px;">Enter Stake Rounds ⚡</button>
-			</div>
-			${podiumHtml}
-			<div class="miners-list-table">
-				${minerRowsHtml || emptyPanel('No active round miners reporting yet.')}
-			</div>
-		</article>
-	`;
+	const topMinersCard = renderTopMinersHtml(home?.top_miners || []);
 	const ticker = home?.ticker?.length ? `<div class="announcement-ticker"><span>${icon('bell')}</span><span>${safe(home.ticker[0])}</span></div>` : '';
 	const withdrawals = withdrawalRows(home?.withdraw_log || []);
 	const greeting = state.profile ? `Welcome back, ${safe((state.profile.identity_masked || 'member').split('@')[0])}` : 'Build your digital future';
@@ -1488,7 +1494,14 @@ async function loadPage(page = state.page) {
 		clearInterval(state.chatPollTimer);
 		state.chatPollTimer = null;
 	}
-	if (page === 'home') renderHome();
+	if (page !== 'home' && state.homeRefreshTimer) {
+		clearInterval(state.homeRefreshTimer);
+		state.homeRefreshTimer = null;
+	}
+	if (page === 'home') {
+		renderHome();
+		startHomeRefresh();
+	}
 	try {
 		if (page === 'home') {
 			const requests = [api(state.token ? 'home' : 'home-public').then((home) => {
@@ -1604,22 +1617,36 @@ function startMiningRefresh() {
 	clearInterval(state.miningPollTimer);
 	state.miningPollTimer = setInterval(refreshMining, 2500);
 }
-async function refreshHomeWithdrawals() {
-	if (state.page !== 'home') return;
+async function refreshHomeLiveFeed() {
+	if (state.page !== 'home') {
+		clearInterval(state.homeRefreshTimer);
+		state.homeRefreshTimer = null;
+		return;
+	}
 	try {
 		const home = await api(state.token ? 'home' : 'home-public');
 		state.home = { ...state.home, ...home };
 		state.prices = home.prices || state.prices;
+		if (home.forex) state.forexRates = home.forex;
+
+		// 1. Refresh live withdrawal log
 		const list = $('.withdraw-list');
-		if (!list) return;
-		list.innerHTML = withdrawalRows(home.withdraw_log || []) || emptyPanel('No public withdrawals yet.');
+		if (list) {
+			list.innerHTML = withdrawalRows(home.withdraw_log || []) || emptyPanel('No public withdrawals yet.');
+		}
+
+		// 2. Refresh live top 10 miners leaderboard
+		const topMinersCard = $('.top-miners-card');
+		if (topMinersCard) {
+			topMinersCard.outerHTML = renderTopMinersHtml(home.top_miners || []);
+		}
 	} catch (error) {
-		console.error('Unable to refresh the public withdrawal log.', error);
+		console.error('Unable to refresh home feed.', error);
 	}
 }
 function startHomeRefresh() {
 	clearInterval(state.homeRefreshTimer);
-	state.homeRefreshTimer = setInterval(refreshHomeWithdrawals, 15000);
+	state.homeRefreshTimer = setInterval(refreshHomeLiveFeed, 6000);
 }
 async function loadProfile() { if (!state.token) return; try { state.profile = await api('me'); } catch { clearSession(); } }
 function clearSession() { state.token = null; state.profile = null; state.home = null; sessionStorage.removeItem('dp_token'); updateIdentity(); }
