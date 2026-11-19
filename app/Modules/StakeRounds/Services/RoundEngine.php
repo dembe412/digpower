@@ -99,8 +99,13 @@ class RoundEngine
             return $round;
         }
 
-        $settings = Setting::get('stake_settings', []);
-        $payoutCapPct = (string) ($settings['payout_cap_pct'] ?? config('stake_rounds.payout_cap_pct'));
+        $megaWeekend = Setting::get('stake_mega_weekend', ['enabled' => false, 'payout_cap_pct' => 96]);
+        if (! empty($megaWeekend['enabled'])) {
+            $payoutCapPct = (string) ($megaWeekend['payout_cap_pct'] ?? 96);
+        } else {
+            $settings = Setting::get('stake_settings', []);
+            $payoutCapPct = (string) ($settings['payout_cap_pct'] ?? config('stake_rounds.payout_cap_pct'));
+        }
         $cap = bcdiv(bcmul($pool, $payoutCapPct, 8), '100', 6);
         $clientSeed = hash('sha256', $stakes->map(fn ($s) => "{$s->id}:{$s->user_id}:{$s->side}:{$s->amount}")->implode('|'));
 

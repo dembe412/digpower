@@ -22,6 +22,11 @@ class StakeAdminController extends Controller
             'default_daily_limit' => config('stake_rounds.default_daily_limit', '100'),
             'volatility_bp' => config('stake_rounds.rate.volatility_bp', 60),
         ]);
+        $megaWeekend = Setting::get('stake_mega_weekend', [
+            'enabled' => false,
+            'payout_cap_pct' => 96,
+            'banner_text' => '⚡ MEGA WEEKEND MINING: Boosted Payouts & Reduced House Margins Active!',
+        ]);
 
         return response()->json([
             'rounds_settled' => (clone $done)->count(),
@@ -32,6 +37,36 @@ class StakeAdminController extends Controller
             'in_play' => (string) (Stake::whereIn('status', ['active', 'cashout_requested'])->sum('amount') ?: '0'),
             'paused' => (bool) (Setting::get('stake_paused')['v'] ?? false),
             'settings' => $settings,
+            'mega_weekend' => $megaWeekend,
+        ]);
+    }
+
+    public function toggleMegaWeekend(Request $r)
+    {
+        $d = $r->validate([
+            'enabled' => 'required|boolean',
+            'payout_cap_pct' => 'nullable|numeric|min:80|max:99',
+            'banner_text' => 'nullable|string|max:255',
+        ]);
+
+        $current = Setting::get('stake_mega_weekend', [
+            'enabled' => false,
+            'payout_cap_pct' => 96,
+            'banner_text' => '⚡ MEGA WEEKEND MINING: Boosted Payouts & Reduced House Margins Active!',
+        ]);
+
+        $updated = [
+            'enabled' => (bool) $d['enabled'],
+            'payout_cap_pct' => isset($d['payout_cap_pct']) ? (float) $d['payout_cap_pct'] : ($current['payout_cap_pct'] ?? 96),
+            'banner_text' => ! empty($d['banner_text']) ? $d['banner_text'] : ($current['banner_text'] ?? '⚡ MEGA WEEKEND MINING: Boosted Payouts & Reduced House Margins Active!'),
+        ];
+
+        Setting::put('stake_mega_weekend', $updated);
+        AuditLog::record($r->user()->id, 'stake.mega_weekend_toggled', null, $updated);
+
+        return response()->json([
+            'mega_weekend' => $updated,
+            'message' => $updated['enabled'] ? 'Mega Weekend mode is now ACTIVE!' : 'Mega Weekend mode has been deactivated.',
         ]);
     }
 

@@ -703,8 +703,26 @@ function renderMining(inPlaceOnly = false) {
 			</div>
 		</section>` : '';
 
+	const megaWeekend = mining?.mega_weekend;
+	const megaWeekendBanner = (megaWeekend && megaWeekend.enabled) ? `
+		<section class="panel" style="margin-bottom:14px;background:linear-gradient(135deg, rgba(234,179,8,0.22), rgba(110,212,167,0.18));border:1px solid #facc15;border-radius:8px;padding:14px 16px;">
+			<div style="display:flex;align-items:center;gap:12px;">
+				<span style="font-size:26px;">⚡</span>
+				<div style="flex:1;">
+					<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+						<strong style="color:#facc15;font-size:13px;letter-spacing:0.5px;text-transform:uppercase;">Mega Weekend Active</strong>
+						<span class="tag tag-good" style="background:#facc15;color:#000;font-weight:700;font-size:10px;">${safe(megaWeekend.payout_cap_pct || 96)}% WIN PAYOUT CAP</span>
+					</div>
+					<p style="margin:3px 0 0;font-size:12px;color:#eee;">
+						${safe(megaWeekend.banner_text || 'Boosted Mining Yields & High-Multiplier Rounds Active! House margin reduced to minimal levels.')}
+					</p>
+				</div>
+			</div>
+		</section>` : '';
+
 	$('#page-content').innerHTML = `
 		${heading('Arena', 'Mining Rounds', 'Live simulated rate rounds with provably-fair mechanics and guaranteed 90% payout cap.')}
+		${megaWeekendBanner}
 		${forexBanner}
 		<section id="mining-arena-section" class="mining-hero" style="display:block;margin-bottom:16px;">
 			<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:14px;">
@@ -1372,6 +1390,7 @@ function renderAdmin() {
 	} else if (activeTab === 'catalog') {
 		const stakeSummary = state.admin.stakeSummary || {};
 		const stakeSettings = stakeSummary.settings || {};
+		const megaWeekend = stakeSummary.mega_weekend || {};
 		const isPaused = Boolean(stakeSummary.paused);
 		const recentRounds = state.admin.stakeRounds?.data || [];
 
@@ -1434,6 +1453,28 @@ function renderAdmin() {
 					<div class="metric-card"><span>House Take (Margin)</span><strong style="color:var(--lime);">${amount(stakeSummary.house_take || 0)} USDT</strong></div>
 					<div class="metric-card"><span>Stakes In Play</span><strong>${amount(stakeSummary.in_play || 0)} USDT</strong></div>
 					<div class="metric-card"><span>Void / Refunded</span><strong>${safe(stakeSummary.rounds_void || 0)}</strong></div>
+				</div>
+
+				<div class="panel" style="background:#17221b;border:1px solid ${megaWeekend.enabled ? '#facc15' : 'var(--line)'};padding:16px 18px;border-radius:10px;margin:18px 0;">
+					<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;">
+						<div style="flex:1;min-width:260px;">
+							<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+								<span style="font-size:22px;">⚡</span>
+								<strong style="color:#facc15;font-size:15px;letter-spacing:0.5px;text-transform:uppercase;">Mega Weekend Promotion Mode</strong>
+								<span class="tag ${megaWeekend.enabled ? 'tag-good' : ''}" style="font-size:11px;background:${megaWeekend.enabled ? '#facc15;color:#000;font-weight:700;' : ''}">
+									${megaWeekend.enabled ? '🔥 ACTIVE NOW (Boosted Yields)' : '⚪ Inactive (Normal Weekday Mode)'}
+								</span>
+							</div>
+							<p style="margin:6px 0 0;font-size:12px;color:var(--muted);line-height:1.5;">
+								When active, rounds run with a boosted win cap of <b>${safe(megaWeekend.payout_cap_pct || 96)}%</b> (House margin drops to ${100 - Number(megaWeekend.payout_cap_pct || 96)}%) and displays a live promotional banner across all miners.
+							</p>
+						</div>
+						${isOpsAdmin ? `
+							<button class="primary-button" data-action="toggle-mega-weekend" data-enabled="${megaWeekend.enabled ? '1' : '0'}" style="font-size:13px;padding:9px 20px;white-space:nowrap;background:${megaWeekend.enabled ? '#e55353;color:#fff;' : '#facc15;color:#000;font-weight:700;'}">
+								${megaWeekend.enabled ? '🛑 Turn Off Mega Weekend' : '⚡ Activate Mega Weekend'}
+							</button>
+						` : ''}
+					</div>
 				</div>
 
 				<form id="admin-stake-settings-form" class="admin-form" style="margin-top:16px;">
@@ -2093,6 +2134,18 @@ document.addEventListener('click', async (event) => {
 			try {
 				await api('admin/stake/pause', { method: 'POST', body: JSON.stringify({ paused: newPaused }) });
 				toast(newPaused ? 'Mining engine paused.' : 'Mining engine resumed.');
+				await loadPage('admin');
+			} catch (error) {
+				toast(error.message);
+			}
+		}
+		else if (action === 'toggle-mega-weekend') {
+			const currentlyEnabled = button.dataset.enabled === '1';
+			const newEnabled = !currentlyEnabled;
+			if (!window.confirm(`${newEnabled ? 'Activate' : 'Deactivate'} Mega Weekend mode? When active, miners will play with boosted payout caps (96%) and see the Mega Weekend banner.`)) return;
+			try {
+				const res = await api('admin/stake/mega-weekend', { method: 'POST', body: JSON.stringify({ enabled: newEnabled }) });
+				toast(res.message || 'Mega Weekend mode updated.');
 				await loadPage('admin');
 			} catch (error) {
 				toast(error.message);

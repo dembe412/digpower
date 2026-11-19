@@ -160,13 +160,22 @@ class StakeService
             $round = StakeRound::whereIn('status', ['open', 'running'])->orderBy('id')->first();
         }
         $p = $this->profile($u);
+        $megaWeekend = Setting::get('stake_mega_weekend', [
+            'enabled' => false,
+            'payout_cap_pct' => 96,
+            'banner_text' => '⚡ MEGA WEEKEND MINING: Boosted Payouts & Reduced House Margins Active!',
+        ]);
+        $settings = Setting::get('stake_settings', []);
+        $activeCapPct = ! empty($megaWeekend['enabled']) ? $megaWeekend['payout_cap_pct'] : ($settings['payout_cap_pct'] ?? $cfg['payout_cap_pct']);
+
         $base = [
             'name' => $cfg['name'], 'notice' => $cfg['notice'], 'paused' => $this->engine->paused(),
             'limits' => ['daily_limit' => (string) $p->daily_limit, 'staked_today' => $this->stakedToday($u),
                 'pending_limit' => $p->pending_daily_limit, 'self_excluded_until' => $p->self_excluded_until],
             'adult_confirmed' => (bool) $p->adult_confirmed_at,
-            'rules' => ['payout_cap_pct' => $cfg['payout_cap_pct'], 'tick_ms' => $cfg['tick_ms'], 'min_players' => $cfg['min_players'],
-                'min_stake' => $cfg['min_stake'], 'max_stake' => $cfg['max_stake']],
+            'mega_weekend' => $megaWeekend,
+            'rules' => ['payout_cap_pct' => (string) $activeCapPct, 'tick_ms' => $cfg['tick_ms'], 'min_players' => $cfg['min_players'],
+                'min_stake' => (string) ($settings['min_stake'] ?? $cfg['min_stake']), 'max_stake' => (string) ($settings['max_stake'] ?? $cfg['max_stake'])],
         ];
         if (! $round) {
             return $base + ['round' => null];

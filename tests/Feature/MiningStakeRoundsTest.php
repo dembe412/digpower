@@ -138,4 +138,41 @@ class MiningStakeRoundsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('paused', false);
     }
+
+    public function test_admin_can_toggle_and_configure_mega_weekend_mode(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true, 'is_active' => true]);
+        $member = User::factory()->create(['is_admin' => false, 'is_active' => true]);
+        Sanctum::actingAs($admin);
+
+        // 1. Activate Mega Weekend mode
+        $res = $this->postJson('/api/admin/stake/mega-weekend', [
+            'enabled' => true,
+            'payout_cap_pct' => 97,
+            'banner_text' => 'MEGA BOOSTED PAYOUTS ACTIVE',
+        ]);
+
+        $res->assertOk()
+            ->assertJsonPath('mega_weekend.enabled', true)
+            ->assertJsonPath('mega_weekend.payout_cap_pct', 97);
+
+        // Verify summary reflects mega weekend
+        $this->getJson('/api/admin/stake/summary')
+            ->assertOk()
+            ->assertJsonPath('mega_weekend.enabled', true)
+            ->assertJsonPath('mega_weekend.payout_cap_pct', 97);
+
+        // Member's mining view reflects mega weekend active
+        Sanctum::actingAs($member);
+        $this->getJson('/api/mining/current')
+            ->assertOk()
+            ->assertJsonPath('mega_weekend.enabled', true)
+            ->assertJsonPath('rules.payout_cap_pct', '97');
+
+        // Deactivate Mega Weekend mode
+        Sanctum::actingAs($admin);
+        $this->postJson('/api/admin/stake/mega-weekend', ['enabled' => false])
+            ->assertOk()
+            ->assertJsonPath('mega_weekend.enabled', false);
+    }
 }
