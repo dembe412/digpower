@@ -64,7 +64,6 @@
                 <button class="top-nav-item" data-page="chat"><span data-icon="chat"></span><span>Chat</span></button>
                 <button class="top-nav-item" data-page="team"><span data-icon="team"></span><span>Team</span></button>
                 <button class="top-nav-item" data-page="me"><span data-icon="user"></span><span>Account</span></button>
-                <button class="top-nav-item" data-page="admin" data-admin-only hidden><span data-icon="settings"></span><span>Admin</span></button>
             </nav>
             <div class="topbar-actions">
                 <button class="icon-button" id="theme-toggle" data-action="toggle-theme" aria-label="Switch theme" title="Switch theme"><span data-icon="theme"></span></button>
@@ -90,7 +89,6 @@
             <button class="mobile-nav-item bottom-nav-item" data-page="chat"><span data-icon="chat"></span><small>Chat</small></button>
             <button class="mobile-nav-item bottom-nav-item" data-page="team"><span data-icon="team"></span><small>Team</small></button>
             <button class="mobile-nav-item bottom-nav-item" data-page="me"><span data-icon="user"></span><small>Me</small></button>
-            <button class="mobile-nav-item bottom-nav-item" data-page="admin" data-admin-only hidden><span data-icon="settings"></span><small>Admin</small></button>
         </nav>
     </div>
     <div class="modal-backdrop" id="modal-backdrop" hidden><section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><button class="modal-close icon-button" data-action="close-modal" aria-label="Close dialog">×</button><div id="modal-content"></div></section></div>
