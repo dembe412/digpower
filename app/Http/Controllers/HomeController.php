@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Announcement;
 use App\Models\Setting;
 use App\Models\User;
 use App\Models\Withdrawal;
@@ -22,7 +21,7 @@ class HomeController extends Controller
         $isGuest = ! $u instanceof User;
 
         return response()->json([
-            'ticker' => Announcement::live()->where('kind', 'ticker')->latest()->pluck('title'),
+            'ticker' => [],
             'wallets' => [
                 'total_assets' => $isGuest ? '0' : $wallet->totalAssets($u),
                 'invest' => $isGuest ? '0' : (string) $u->invest_balance,
@@ -37,7 +36,7 @@ class HomeController extends Controller
             'top_miners' => $this->topMiners(),
             'prices' => $prices->all(),
             'forex' => $forex->rates(),
-            'risk_notice' => 'Earnings are not guaranteed and depend on reported revenue. You can lose money.',
+            'risk_notice' => null,
         ]);
     }
 

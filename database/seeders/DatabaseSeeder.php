@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Announcement;
 use App\Models\ChatMessage;
 use App\Models\Faq;
 use App\Models\Product;
@@ -70,7 +69,7 @@ class DatabaseSeeder extends Seeder
                     'daily_income' => $win ? ($min * $y / 100 / $win) : 0,
                     'duration_days' => $win,
                     'image_path' => $image,
-                    'tagline' => 'Indicative earnings only; all product activation is manually reviewed.',
+                    'tagline' => 'Manual activation after payment verification.',
                     'sort_order' => $lvl,
                     'is_active' => true,
                 ]);
@@ -130,18 +129,16 @@ class DatabaseSeeder extends Seeder
 
         $admin = $superAdmin;
 
-        Announcement::firstOrCreate(['title' => 'Welcome to '.config('platform.name')], ['kind' => 'ticker']);
-
         $defaultFaqs = [
             [
-                'question' => 'Are returns guaranteed?',
-                'answer' => 'No. Earnings are distributed pro-rata from revenue the platform actually reports. Percentages shown on plans are indicative targets and can be lower or zero. You can lose money.',
+                'question' => 'How do mineral mining products work?',
+                'answer' => 'Choose an equipment plan, pay manually via Mobile Money or supported methods, and submit your transaction reference. Our administrators verify the payment to activate your daily returns.',
                 'sort' => 1,
                 'is_active' => true,
             ],
             [
-                'question' => 'When can I withdraw my deposit?',
-                'answer' => 'Deposits are locked for the plan window. Claimed earnings and referral rewards can be withdrawn at any time, subject to review.',
+                'question' => 'When can I withdraw my deposit and earnings?',
+                'answer' => 'Claimed daily mining earnings and referral rewards can be withdrawn directly to your Mobile Money account at any time, subject to normal review.',
                 'sort' => 2,
                 'is_active' => true,
             ],

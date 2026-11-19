@@ -32,6 +32,5 @@ return [
         'volatility_bp' => (int) env('STAKE_VOLATILITY_BP', 60), // max +/- move per tick, in basis points
     ],
 
-    'notice' => 'Stake Rounds is a game of chance. You can lose your entire stake. '
-        .'The rate shown is a simulated index, not the real USD/UGX exchange rate. 18+ only.',
+    'notice' => '',
 ];

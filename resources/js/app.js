@@ -470,14 +470,12 @@ function renderHome() {
 	`;
 
 	const topMinersCard = renderTopMinersHtml(home?.top_miners || []);
-	const ticker = home?.ticker?.length ? `<div class="announcement-ticker"><span>${icon('bell')}</span><span>${safe(home.ticker[0])}</span></div>` : '';
 	const withdrawals = withdrawalRows(home?.withdraw_log || []);
 	const greeting = state.profile ? `Welcome back, ${safe((state.profile.identity_masked || 'member').split('@')[0])}` : 'Build your digital future';
 	const heroActions = state.profile
 		? `<button class="hero-button hero-button-primary" data-page="products">Explore products ${icon('arrow')}</button><button class="hero-button hero-button-secondary" data-page="mining">View mining ${icon('arrow')}</button>`
 		: `<button class="hero-button hero-button-primary" data-action="auth">Join DigiPowerX ${icon('arrow')}</button><button class="hero-button hero-button-secondary" data-page="products">Explore products ${icon('arrow')}</button>`;
 	$('#page-content').innerHTML = `<section class="welcome-hero has-video page-enter"><video class="hero-video" src="/videos/mining-bg.mp4" autoplay muted loop playsinline preload="auto" aria-hidden="true"></video><div class="hero-video-shade"></div><div class="hero-glow"></div><div class="hero-copy"><span class="hero-kicker"><i></i> Digital growth, made clearer</span><h1>${greeting}</h1><p>Discover mineral products, transparent manual administration and a growing digital ecosystem built to help you move with confidence.</p><div class="hero-actions">${heroActions}</div><div class="hero-trust"><span>${icon('shield')} Manual review</span><span>${icon('eye')} Clear balances</span><span>${icon('team')} Community rewards</span></div></div><div class="hero-orbit"><div class="orbit-ring orbit-ring-one"></div><div class="orbit-ring orbit-ring-two"></div><div class="orbit-core"><span>DPX</span><small>POWER</small></div><span class="orbit-tag orbit-tag-one">PRODUCTS</span><span class="orbit-tag orbit-tag-two">MINING</span><span class="orbit-tag orbit-tag-three">TEAM</span></div></section>
-		${ticker}
 		<section class="welcome-strip page-enter"><div><span class="eyebrow">Start here</span><h2>One platform. More ways to grow.</h2><p>Choose a mineral product, track your activity, and build your network at your own pace.</p></div><div class="welcome-strip-links"><button data-page="products"><span class="welcome-link-icon">${icon('vip')}</span><span><strong>Mineral products</strong><small>Own your next opportunity</small></span>${icon('arrow')}</button><button data-page="team"><span class="welcome-link-icon">${icon('invite')}</span><span><strong>Invite &amp; earn</strong><small>Grow with your community</small></span>${icon('arrow')}</button></div></section>
 		<section class="page-enter" style="margin-bottom:14px;background:linear-gradient(135deg,#18251e,#131e17);border:1px solid #25D36633;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
 			<div style="display:flex;align-items:center;gap:12px;">
@@ -496,8 +494,7 @@ function renderHome() {
 		<section class="section-heading"><div><h2>Mining currencies &amp; live rates</h2><p>Live exchange rates for USD &amp; EUR mining assets</p></div><button class="text-button" data-action="refresh">Refresh rates</button></section>
 		<section class="market-assets">${miningForexCard}</section>
 		${topMinersCard}
-		<section class="share-panel"><h2>Share your link &amp; earn</h2><div class="social-row">${renderSocialShareButtons()}</div></section>
-		<div class="disclaimer"><span>${icon('shield')}</span><span><strong>Risk notice:</strong> Earnings are not guaranteed and depend on reported revenue. You can lose money. ${safe(home?.risk_notice || '')}</span></div>`;
+		<section class="share-panel"><h2>Share your link &amp; earn</h2><div class="social-row">${renderSocialShareButtons()}</div></section>`;
 	renderIcons();
 	setNav();
 }
@@ -511,12 +508,12 @@ function renderProducts() {
 			const action = owned ? `<span class="product-status">${safe(owned.status === 'active' ? 'Active product' : 'Awaiting admin approval')}</span>` : `<button class="primary-button product-action" data-action="product-purchase" data-product-id="${safe(product.id)}">${state.token ? 'Submit manual payment' : 'Sign in to choose'} ${icon('arrow')}</button>`;
 			return `<article class="product-card page-enter"><div class="product-card-visual" style="--product-image: url('${safe(product.image_path)}')"><img class="product-image" src="${safe(product.image_path)}" alt="${safe(product.name)} mineral product"><span class="product-number">PRODUCT ${String(index + 1).padStart(2, '0')}</span></div><div class="product-card-body"><div class="product-card-heading"><div><p class="eyebrow">Mineral product</p><h2>${safe(product.name)}</h2></div><span class="product-badge">${safe(product.code)}</span></div><p class="product-description">${safe(product.tagline || 'Manual activation after payment verification.')}</p><div class="product-details"><div><span>Product price</span><strong>${amount(product.cost_price)} UGX</strong></div><div><span>Indicative daily</span><strong>${amount(product.daily_income)} UGX/day</strong></div><div><span>Duration</span><strong>${product.duration_days ? `${safe(product.duration_days)} days` : 'Open'}</strong></div></div>${action}</div></article>`;
 		}).join('');
-		$('#page-content').innerHTML = `${heading('Products', 'Mineral products', 'Choose a product, pay manually, then submit your transaction ID for admin verification.')}<section class="product-grid">${cards || emptyPanel('No products are currently available.')}</section><div class="disclaimer"><span>${icon('shield')}</span><span>Product income is indicative only. Purchases remain pending until an administrator verifies the manual payment.</span></div>`;
+		$('#page-content').innerHTML = `${heading('Products', 'Mineral products', 'Choose a product, pay manually, then submit your transaction ID for admin verification.')}<section class="product-grid">${cards || emptyPanel('No products are currently available.')}</section>`;
 		renderIcons(); setNav(); return;
 	}
 	const pageTitle = isVipPage ? 'VIP levels' : 'Products';
 	const pageKicker = isVipPage ? 'Membership' : 'Products';
-	const pageSubtitle = isVipPage ? 'Explore membership levels and mining windows. Yield targets are indicative only, never guaranteed.' : 'Explore deposit products and mining windows. Yield targets are indicative only, never guaranteed.';
+	const pageSubtitle = isVipPage ? 'Explore membership levels and mining windows.' : 'Explore deposit products and mining windows.';
 	const productLevels = levels.filter((level) => Number(level.level) > 0);
 	const vipLevels = levels.length ? levels : [{ level: 0, name: 'No equipment', min_deposit: 0, mining_window: '—', rebate_rates: {} }];
 	const rows = vipLevels.map((level) => `<div class="list-row"><span><b class="level-badge">LV ${safe(level.level)}</b></span><strong>${safe(level.name)}</strong><span>${Number(level.level) === 0 ? '0' : amount(level.min_deposit)}${level.max_deposit ? ` – ${amount(level.max_deposit)}` : Number(level.level) === 0 ? '' : '+'} UGX</span><span>${safe(level.mining_window || '—')}</span><span class="vip-rebate">${Object.entries(level.rebate_rates || {}).map(([key, value]) => `<b>${safe(key)} ${safe(value)}%</b>`).join('') || 'No rebate'}</span></div>`).join('');
@@ -528,8 +525,8 @@ function renderProducts() {
 	const cards = productLevels.map((level, index) => { const image = productImages[level.level] || productImages[1]; return `<article class="product-card product-level-${safe(level.level)} page-enter"><div class="product-card-visual" style="--product-image: url('${safe(image)}')"><img class="product-image" src="${safe(image)}" alt="${safe(level.name)} mineral product"><span class="product-number">PRODUCT ${String(index + 1).padStart(2, '0')}</span></div><div class="product-card-body"><div class="product-card-heading"><div><p class="eyebrow">Mining product</p><h2>${safe(level.name)}</h2></div><span class="product-badge">LV ${safe(level.level)}</span></div><p class="product-description">Activate this plan with a qualifying deposit and receive hashrate based on your active principal.</p><div class="product-details"><div><span>Starting deposit</span><strong>${amount(level.min_deposit)} UGX</strong></div><div><span>Mining window</span><strong>${safe(level.mining_window || 'Forever')}</strong></div><div><span>Target yield</span><strong>${amount(level.target_yield_pct, 2)}%</strong></div></div><button class="primary-button product-action" data-action="product-deposit" data-product-min="${safe(level.min_deposit)}" data-product-name="${safe(level.name)}">${state.token ? 'Choose this product' : 'Sign in to choose'} ${icon('arrow')}</button></div></article>` }).join('');
 	const content = isVipPage
 		? `<div class="metric-grid"><div class="metric-card"><span>Your current level</span><strong>${safe(state.vip?.current?.name || 'Sign in')}</strong></div><div class="metric-card"><span>Active deposits</span><strong>${state.vip?.current ? `${amount(state.vip.current.deposit_amount)} UGX` : '—'}</strong></div><div class="metric-card"><span>Hashrate</span><strong>${state.vip?.current ? amount(state.vip.current.hashrate, 3) : '—'}</strong></div><div class="metric-card"><span>Indicative daily</span><strong>${state.vip?.current ? `${amount(state.vip.current.estimated_daily)} UGX` : '—'}</strong></div></div><section class="section-heading"><div><h2>Membership tiers</h2><p>Deposit ranges, mining windows and referral rebates</p></div></section><section class="panel list-panel"><div class="list-row vip-table-head"><span class="label">Level</span><span class="label">Tier</span><span class="label">Deposit range</span><span class="label">Mining window</span><span class="label">Rebates</span></div>${rows || emptyPanel('No membership levels are configured.')}</section>`
-		: `<section class="product-grid">${cards || emptyPanel('No products are configured.')}</section><div class="disclaimer"><span>${icon('shield')}</span><span><strong>Risk notice:</strong> Returns are indicative only. Actual earnings depend on reported platform revenue and may be lower or zero. You can lose money.</span></div>`;
-	$('#page-content').innerHTML = `${heading(pageKicker, pageTitle, pageSubtitle)}<div class="info-banner"><span>${icon('shield')}</span><span><strong>Returns are not guaranteed.</strong> Actual earnings depend on platform revenue and may be lower than the indicative target, or zero.</span></div>
+		: `<section class="product-grid">${cards || emptyPanel('No products are configured.')}</section>`;
+	$('#page-content').innerHTML = `${heading(pageKicker, pageTitle, pageSubtitle)}
 		${content}`;
 	renderIcons(); setNav();
 }
@@ -751,11 +748,6 @@ function renderMining(inPlaceOnly = false) {
 		</div>
 
 		${tabContent}
-
-		<div class="disclaimer" style="margin-top:20px;">
-			<span>${icon('shield')}</span>
-			<span><strong>Notice:</strong> ${safe(mining?.notice || 'Stake Rounds is a game of chance. You can lose your entire stake. The rate shown is a simulated index, not the real USD/UGX exchange rate. 18+ only.')}</span>
-		</div>
 	`;
 	renderIcons();
 	setNav();
