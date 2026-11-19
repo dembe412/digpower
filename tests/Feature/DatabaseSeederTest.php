@@ -36,9 +36,9 @@ class DatabaseSeederTest extends TestCase
     {
         $this->seed(DatabaseSeeder::class);
 
-        $superAdmin = User::where('email', 'admin@example.com')->firstOrFail();
-        $opsAdmin = User::where('email', 'ops@digipowerx.test')->firstOrFail();
-        $manager = User::where('email', 'manager@digipowerx.test')->firstOrFail();
+        $superAdmin = User::where('name', 'brandon')->orWhere('phone', 'brandon')->firstOrFail();
+        $opsAdmin = User::where('name', 'admin@digpowerX')->orWhere('email', 'admin@digpowerX')->firstOrFail();
+        $manager = User::where('name', 'jydan')->orWhere('phone', 'jydan')->firstOrFail();
 
         $this->assertTrue($superAdmin->is_admin);
         $this->assertTrue($superAdmin->is_super_admin);
@@ -63,12 +63,26 @@ class DatabaseSeederTest extends TestCase
     {
         $originalEnv = $this->app['env'];
         $this->app['env'] = 'production';
+        $keys = ['ADMIN_IDENTIFIER', 'ADMIN_PASSWORD', 'OPS_ADMIN_IDENTIFIER', 'OPS_ADMIN_PASSWORD', 'MANAGER_IDENTIFIER', 'MANAGER_PASSWORD', 'ADMIN_EMAIL', 'OPS_ADMIN_EMAIL', 'MANAGER_EMAIL'];
+        $saved = [];
+        foreach ($keys as $k) {
+            $saved[$k] = getenv($k);
+            putenv($k);
+            unset($_ENV[$k], $_SERVER[$k]);
+        }
 
         try {
             $this->artisan('db:seed', ['--class' => DatabaseSeeder::class, '--force' => true])
                 ->assertSuccessful();
         } finally {
             $this->app['env'] = $originalEnv;
+            foreach ($saved as $k => $v) {
+                if ($v !== false && $v !== null) {
+                    putenv("$k=$v");
+                    $_ENV[$k] = $v;
+                    $_SERVER[$k] = $v;
+                }
+            }
         }
 
         $this->assertSame(0, User::where('is_admin', true)->count());

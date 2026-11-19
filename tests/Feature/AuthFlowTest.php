@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class AuthFlowTest extends TestCase
@@ -74,7 +75,7 @@ class AuthFlowTest extends TestCase
         $recruit = User::where('email', 'recruit@example.test')->first();
         $this->assertNotNull($recruit->invite_code);
 
-        \Laravel\Sanctum\Sanctum::actingAs($referrer);
+        Sanctum::actingAs($referrer);
         $teamRes = $this->getJson('/api/team')->assertOk();
         $this->assertEquals(1, $teamRes->json('stats.team_size'));
     }

@@ -44,7 +44,14 @@ class AuthController extends Controller
     {
         $r->validate(['identifier' => 'required|string', 'password' => 'required|string', 'totp_code' => 'nullable|string']);
 
-        $user = User::where('email', $r->identifier)->orWhere('phone', $r->identifier)->first();
+        $identifier = trim($r->identifier);
+        $user = User::where('email', $identifier)
+            ->orWhere('phone', $identifier)
+            ->orWhere('name', $identifier)
+            ->orWhereRaw('LOWER(email) = ?', [strtolower($identifier)])
+            ->orWhereRaw('LOWER(phone) = ?', [strtolower($identifier)])
+            ->orWhereRaw('LOWER(name) = ?', [strtolower($identifier)])
+            ->first();
         if (! $user || Hash::check($r->password, $user->password) === false || ! $user->is_active || $user->archived_at) {
             throw ValidationException::withMessages(['identifier' => 'Invalid credentials.']);
         }

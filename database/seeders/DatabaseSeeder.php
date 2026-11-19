@@ -76,31 +76,56 @@ class DatabaseSeeder extends Seeder
 
         $isProduction = app()->isProduction();
 
-        $admin = $this->seedAdminAccount(
-            email: env('ADMIN_EMAIL', $isProduction ? null : 'admin@example.com'),
-            password: env('ADMIN_PASSWORD', $isProduction ? null : 'ChangeMe!12345'),
-            name: 'Super Admin',
+        // Remove old test staff accounts before seeding the 3 new staff
+        $oldStaff = User::whereIn('email', ['admin@example.com', 'admin@digipowerx.test', 'ops@digipowerx.test', 'manager@digipowerx.test'])->get();
+        foreach ($oldStaff as $old) {
+            $old->update(['invite_code' => 'OLD_'.$old->id.'_'.Str::random(4)]);
+            $old->delete();
+        }
+
+        $superAdmin = $this->seedAdminAccount(
+            identifier: $isProduction ? env('ADMIN_IDENTIFIER', env('ADMIN_EMAIL')) : env('ADMIN_IDENTIFIER', env('ADMIN_EMAIL', 'brandon')),
+            password: $isProduction ? env('ADMIN_PASSWORD') : env('ADMIN_PASSWORD', 'brandon256@#'),
+            name: 'brandon',
             role: 'super_admin',
             isSuperAdmin: true,
+            inviteCode: 'BRND01',
         );
 
-        $this->seedAdminAccount(
-            email: env('OPS_ADMIN_EMAIL', $isProduction ? null : 'ops@digipowerx.test'),
-            password: env('OPS_ADMIN_PASSWORD', $isProduction ? null : 'ChangeMe!12345'),
-            name: 'Operations Admin',
+        $opsAdmin = $this->seedAdminAccount(
+            identifier: $isProduction ? env('OPS_ADMIN_IDENTIFIER', env('OPS_ADMIN_EMAIL')) : env('OPS_ADMIN_IDENTIFIER', env('OPS_ADMIN_EMAIL', 'admin@digpowerX')),
+            password: $isProduction ? env('OPS_ADMIN_PASSWORD') : env('OPS_ADMIN_PASSWORD', 'peter256@#'),
+            name: 'admin@digpowerX',
             role: 'admin',
             isSuperAdmin: false,
-            inviteCode: 'OPS001',
+            inviteCode: 'ADM001',
         );
 
-        $this->seedAdminAccount(
-            email: env('MANAGER_EMAIL', $isProduction ? null : 'manager@digipowerx.test'),
-            password: env('MANAGER_PASSWORD', $isProduction ? null : 'ChangeMe!12345'),
-            name: 'Customer Manager',
+        $customerManager = $this->seedAdminAccount(
+            identifier: $isProduction ? env('MANAGER_IDENTIFIER', env('MANAGER_EMAIL')) : env('MANAGER_IDENTIFIER', env('MANAGER_EMAIL', 'jydan')),
+            password: $isProduction ? env('MANAGER_PASSWORD') : env('MANAGER_PASSWORD', 'jydan256@#'),
+            name: 'jydan',
             role: 'manager',
             isSuperAdmin: false,
             inviteCode: 'MGR001',
         );
+
+        // Reassign any orphaned system chat messages to the super admin
+        if ($superAdmin) {
+            ChatMessage::whereNull('user_id')->orWhere('user_id', 0)->update(['user_id' => $superAdmin->id]);
+        }
+
+        // Revoke admin & staff privileges from any old/unwanted accounts
+        $validAdminIds = array_filter([$superAdmin?->id, $opsAdmin?->id, $customerManager?->id]);
+        User::whereNotIn('id', $validAdminIds)
+            ->where(fn ($q) => $q->where('is_admin', true)->orWhereNotNull('admin_role'))
+            ->update([
+                'is_admin' => false,
+                'is_super_admin' => false,
+                'admin_role' => null,
+            ]);
+
+        $admin = $superAdmin;
 
         Announcement::firstOrCreate(['title' => 'Welcome to '.config('platform.name')], ['kind' => 'ticker']);
 
@@ -156,23 +181,30 @@ class DatabaseSeeder extends Seeder
     }
 
     private function seedAdminAccount(
-        ?string $email,
+        ?string $identifier,
         ?string $password,
         string $name,
         string $role,
         bool $isSuperAdmin,
         ?string $inviteCode = null,
     ): ?User {
-        if (! $email || ! $password) {
+        if (! $identifier || ! $password) {
             return null;
         }
 
-        $user = User::where('email', $email)->first();
+        $user = User::where('email', $identifier)
+            ->orWhere('phone', $identifier)
+            ->orWhere('name', $identifier)
+            ->orWhere('name', $name)
+            ->first();
+
+        $isEmail = str_contains($identifier, '@');
 
         if (! $user) {
             $user = new User([
                 'name' => $name,
-                'email' => $email,
+                'email' => $isEmail ? $identifier : null,
+                'phone' => ! $isEmail ? $identifier : null,
                 'password' => Hash::make($password),
                 'invite_code' => $inviteCode ?? Str::upper(Str::random(6)),
                 'terms_accepted_at' => now(),
@@ -187,13 +219,19 @@ class DatabaseSeeder extends Seeder
             return $user;
         }
 
-        if (! $user->is_admin || $user->is_super_admin !== $isSuperAdmin || $user->admin_role !== $role) {
-            $user->forceFill([
-                'is_admin' => true,
-                'is_super_admin' => $isSuperAdmin,
-                'admin_role' => $role,
-            ])->save();
+        $attributes = [
+            'name' => $name,
+            'is_admin' => true,
+            'is_super_admin' => $isSuperAdmin,
+            'admin_role' => $role,
+            'is_active' => true,
+        ];
+
+        if (! $user->is_admin) {
+            $attributes['password'] = Hash::make($password);
         }
+
+        $user->forceFill($attributes)->save();
 
         return $user;
     }
