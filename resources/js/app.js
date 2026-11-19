@@ -938,6 +938,15 @@ function renderMe() {
 	` : '';
 
 	$('#page-content').innerHTML = `${heading('Personal workspace', 'My account', 'Manage your wallets, profile and account security.')}<section class="profile-hero">${avatarBlock}<div><h2>${safe(profile?.identity_masked || 'Guest account')}</h2><p>${profile ? `Invite code ${safe(profile.invite_code)} · ${profile.totp_enabled ? 'Authenticator enabled' : 'Authenticator not enabled'}` : 'Sign in to connect your account and load real wallet data.'}</p>${avatarActions}</div></section>
+		${profile?.is_admin ? `
+		<section class="panel page-enter" style="margin-bottom:16px;border:1px solid #6ed4a7;background:linear-gradient(135deg,rgba(26,55,36,0.9),rgba(17,35,23,0.95));padding:16px 20px;border-radius:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+			<div>
+				<span class="eyebrow" style="color:var(--lime);">Staff Workspace</span>
+				<h2 style="font:600 18px var(--display);margin:2px 0 4px 0;color:#fff;">${safe(profile.admin_role === 'manager' ? 'Customer Manager Console' : profile.is_super_admin ? 'Super Administrator Console' : 'Operations Admin Console')}</h2>
+				<p style="color:var(--muted);font-size:12px;margin:0;">Open your administrative console to view customers, equipment ownership, and client actions.</p>
+			</div>
+			<button class="primary-button" data-page="admin" style="padding:10px 22px;font-weight:700;background:var(--lime);color:#101312;">Open Console →</button>
+		</section>` : ''}
 		${profile ? `<div class="metric-grid"><div class="metric-card"><span>Invest wallet</span><strong>${amount(state.home?.wallets?.invest)} UGX</strong></div><div class="metric-card"><span>Commission wallet</span><strong>${amount(state.home?.wallets?.commission)} UGX</strong></div><div class="metric-card"><span>Mining USD</span><strong>$${amount(state.profile?.usd_balance || state.home?.wallets?.usd, 2)}</strong></div><div class="metric-card"><span>Mining EUR</span><strong>€${amount(state.profile?.eur_balance || state.home?.wallets?.eur, 2)}</strong></div></div>` : `<div class="info-banner"><span>${icon('lock')}</span><span>Your private account information is shown after you sign in.</span></div>`}
 		${profile ? `
 		<div style="display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,rgba(26,55,36,0.8),rgba(17,35,23,0.9));border:1px solid #25D36644;border-radius:8px;padding:12px 16px;margin:14px 0 16px 0;">
@@ -948,6 +957,7 @@ function renderMe() {
 			<button class="primary-button" data-action="open-private-chat" style="padding:6px 14px;font-size:12px;background:#25D366;color:#101312;font-weight:700;">Open Chat 💬</button>
 		</div>` : ''}
 		${ownedCards ? `<p class="account-section-title">Owned products</p><section class="stacked-panels">${ownedCards || emptyPanel('No active products yet.')}</section>` : ''}
+		${profile?.is_admin ? `<p class="account-section-title">Administration</p><section class="account-menu"><button data-page="admin"><span class="menu-icon">${icon('settings')}</span><span>Staff Management Console</span><span class="menu-chevron">›</span></button></section>` : ''}
 		<p class="account-section-title">Wallet</p><section class="account-menu">${menuButton('deposit', 'Deposit funds', 'deposit')}${menuButton('withdraw', 'Withdraw funds', 'withdraw')}${menuButton('transfer', 'Transfer between wallets', 'transfer')}${menuButton('statement', 'Statements', 'statements')}${menuButton('statement', 'Deposit history', 'deposit-history')}${menuButton('statement', 'Withdrawal history', 'withdrawal-history')}</section><p class="account-section-title">Security and support</p><section class="account-menu">${menuButton('chat', 'Private 1-on-1 Support Chat', 'open-private-chat')}${menuButton('lock', 'Security PIN', 'set-pin')}${menuButton('shield', 'Authenticator', 'totp')}${menuButton('user', 'Change password', 'password')}${menuButton('bell', 'Notifications', 'notifications')}${menuButton('help', 'FAQ and support', 'faq')}</section>
 		${profile ? '<button class="secondary-button logout-button" data-action="logout">Sign out</button>' : '<button class="primary-button logout-button" data-action="auth">Sign in or create an account</button>'}`;
 	renderIcons(); setNav();
