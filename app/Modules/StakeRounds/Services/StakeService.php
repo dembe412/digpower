@@ -151,7 +151,10 @@ class StakeService
     public function state(User $u): array
     {
         $cfg = config('stake_rounds');
-        $round = StakeRound::whereIn('status', ['open', 'running'])->orderBy('id')->first();
+        $round = $this->engine->advance();
+        if (! $round) {
+            $round = StakeRound::whereIn('status', ['open', 'running'])->orderBy('id')->first();
+        }
         $p = $this->profile($u);
         $base = [
             'name' => $cfg['name'], 'notice' => $cfg['notice'], 'paused' => $this->engine->paused(),

@@ -333,8 +333,9 @@ function renderHome() {
 				<div class="podium-card rank-${m.rank}">
 					<span class="podium-rank-badge">${m.rank === 1 ? '🥇 #1' : m.rank === 2 ? '🥈 #2' : '🥉 #3'}</span>
 					<div class="podium-miner-meta">
-						<span class="withdraw-avatar withdraw-avatar-${m.avatar_variant || 1}">
-							${m.avatar_url ? `<img src="${safe(m.avatar_url)}" alt="">` : safe(m.avatar_initial || 'M')}
+						<span class="withdraw-avatar withdraw-avatar-${m.avatar_variant || 1}" style="position:relative;overflow:hidden;">
+							<span style="display:grid;place-items:center;width:100%;height:100%;">${safe(m.avatar_initial || 'M')}</span>
+							${m.avatar_url ? `<img src="${safe(m.avatar_url)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" onerror="this.remove()">` : ''}
 						</span>
 						<div style="min-width:0;">
 							<div class="podium-miner-name">${safe(m.user)}</div>
@@ -354,8 +355,9 @@ function renderHome() {
 		<div class="miner-row">
 			<span class="miner-rank rank-${m.rank}">${m.rank === 1 ? '🥇' : m.rank === 2 ? '🥈' : m.rank === 3 ? '🥉' : `#${m.rank}`}</span>
 			<div class="miner-info">
-				<span class="withdraw-avatar withdraw-avatar-${m.avatar_variant || 1}" style="width:28px;height:28px;font-size:10px;">
-					${m.avatar_url ? `<img src="${safe(m.avatar_url)}" alt="">` : safe(m.avatar_initial || 'M')}
+				<span class="withdraw-avatar withdraw-avatar-${m.avatar_variant || 1}" style="position:relative;overflow:hidden;width:28px;height:28px;font-size:10px;">
+					<span style="display:grid;place-items:center;width:100%;height:100%;">${safe(m.avatar_initial || 'M')}</span>
+					${m.avatar_url ? `<img src="${safe(m.avatar_url)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" onerror="this.remove()">` : ''}
 				</span>
 				<strong>${safe(m.user)}</strong>
 			</div>
@@ -372,7 +374,7 @@ function renderHome() {
 				<small style="display:block;color:var(--muted);font-size:9px;">Total mined</small>
 			</div>
 			<div class="miner-status">
-				<span class="tag tag-good" style="font-size:9px;padding:3px 6px;">⚡ Mining</span>
+				<span class="tag tag-good" style="font-size:9px;padding:3px 6px;">⚡ Mining Round</span>
 			</div>
 		</div>
 	`).join('');
@@ -383,15 +385,15 @@ function renderHome() {
 				<div class="top-miners-title">
 					<span class="coin-badge" style="background:#25D36620;color:#25D366;border-color:#25D36650;">⚡</span>
 					<div>
-						<h3>Top Miners &amp; Hashrate Leaders</h3>
-						<p>Real-time equipment hashrate and mining output</p>
+						<h3>Top Miners &amp; Round Leaders</h3>
+						<p>Real-time Stake Rounds winners, hashrate and mining output</p>
 					</div>
 				</div>
-				<button class="primary-button" data-page="products" style="padding:6px 14px;font-size:11px;min-height:30px;">Deploy Equipment ⚡</button>
+				<button class="primary-button" data-page="mining" style="padding:6px 14px;font-size:11px;min-height:30px;">Enter Stake Rounds ⚡</button>
 			</div>
 			${podiumHtml}
 			<div class="miners-list-table">
-				${minerRowsHtml || emptyPanel('No active miners reporting yet.')}
+				${minerRowsHtml || emptyPanel('No active round miners reporting yet.')}
 			</div>
 		</article>
 	`;

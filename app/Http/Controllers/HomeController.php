@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Announcement;
-use App\Models\Purchase;
 use App\Models\Setting;
 use App\Models\User;
 use App\Models\Withdrawal;
+use App\Modules\StakeRounds\Models\Stake;
 use App\Services\ForexService;
 use App\Services\PriceService;
 use App\Services\VipService;
@@ -70,53 +70,72 @@ class HomeController extends Controller
             ]);
     }
 
-    /** Top active miners and hashrate leaders with masked identities. */
+    /** Top active miners and round leaders under the Stake Rounds criteria with masked identities. */
     private function topMiners(): array
     {
-        $activePurchases = Purchase::with(['user:id,email,phone,avatar_url,name', 'product:id,name,daily_income,cost_price'])
-            ->where('status', 'active')
-            ->orderByDesc('principal')
-            ->limit(10)
-            ->get();
-
         $miners = [];
         $rank = 1;
 
-        foreach ($activePurchases as $p) {
-            if (! $p->user) {
+        // Query top participants from Stake Rounds (cashed or active stakes)
+        $topStakers = Stake::with('user:id,email,phone,avatar_url,name')
+            ->whereHas('user', fn ($q) => $q->where('is_admin', false))
+            ->whereIn('status', ['cashed', 'active'])
+            ->selectRaw('user_id, side, sum(payout) as total_payout, sum(amount) as total_staked, max(payout) as top_win, count(id) as rounds_played')
+            ->groupBy('user_id', 'side')
+            ->orderByDesc('total_payout')
+            ->orderByDesc('total_staked')
+            ->limit(10)
+            ->get();
+
+        $seenUsers = [];
+        foreach ($topStakers as $st) {
+            if (! $st->user || isset($seenUsers[$st->user_id])) {
                 continue;
             }
-            $masked = $p->user->maskedIdentity();
+            $seenUsers[$st->user_id] = true;
+            $masked = $st->user->maskedIdentity();
+            $sideLabel = strtoupper($st->side ?? 'USD');
+            $stakedUsdt = (float) $st->total_staked;
+            $payoutUsdt = (float) $st->total_payout;
+            $topWinUsdt = (float) $st->top_win;
+
+            // Convert to UGX for leaderboard presentation (rate: ~3,800 UGX/USD)
+            $dailyUgx = round(max(15000, ($topWinUsdt > 0 ? $topWinUsdt : $stakedUsdt) * 3800), -3);
+            $totalMinedUgx = round(max(50000, ($payoutUsdt > 0 ? $payoutUsdt : $stakedUsdt * 1.5) * 3800), -3);
+            $hashrateTh = number_format(max(10.0, $stakedUsdt * 5), 1).' TH/s';
+
             $miners[] = [
                 'rank' => $rank++,
                 'user' => $masked,
-                'avatar_url' => $p->user->avatar_url,
+                'avatar_url' => $st->user->avatar_url,
                 'avatar_initial' => strtoupper(substr($masked, 0, 1)),
-                'avatar_variant' => ($p->user->id % 6) + 1,
-                'machine' => $p->product?->name ?? 'Mining Equipment',
-                'hashrate' => number_format((float) $p->principal * 0.05, 1).' TH/s',
-                'daily_output' => number_format((float) $p->daily_income, 0, '.', ',').' UGX',
-                'total_mined' => number_format((float) $p->earnedAmount(), 0, '.', ',').' UGX',
-                'status' => 'Active',
+                'avatar_variant' => ($st->user_id % 6) + 1,
+                'machine' => "{$sideLabel} Stake Round",
+                'hashrate' => $hashrateTh,
+                'daily_output' => '+'.number_format($dailyUgx, 0, '.', ',').' UGX',
+                'total_mined' => number_format($totalMinedUgx, 0, '.', ',').' UGX',
+                'status' => 'Mining',
             ];
         }
 
+        // Fill remaining slots up to 6 with realistic Stake Rounds leader benchmarks
         if (count($miners) < 6) {
             $existingUsers = User::where('is_admin', false)
                 ->where('is_active', true)
+                ->whereNotIn('id', array_keys($seenUsers))
                 ->limit(6)
                 ->get();
 
-            $sampleMachines = [
-                ['name' => 'Antminer S21 Hydro', 'hashrate' => '335.0 TH/s', 'daily' => '185,000 UGX', 'total' => '3,450,000 UGX'],
-                ['name' => 'Whatsminer M60S', 'hashrate' => '186.0 TH/s', 'daily' => '98,000 UGX', 'total' => '2,120,000 UGX'],
-                ['name' => 'Antminer S19 XP', 'hashrate' => '140.0 TH/s', 'daily' => '72,000 UGX', 'total' => '1,560,000 UGX'],
-                ['name' => 'Avalon A1466', 'hashrate' => '150.0 TH/s', 'daily' => '78,500 UGX', 'total' => '1,340,000 UGX'],
-                ['name' => 'Antminer L7 ASIC', 'hashrate' => '90.5 TH/s', 'daily' => '54,000 UGX', 'total' => '980,000 UGX'],
-                ['name' => 'Whatsminer M50', 'hashrate' => '118.0 TH/s', 'daily' => '62,000 UGX', 'total' => '840,000 UGX'],
+            $sampleRounds = [
+                ['strategy' => 'USD High-Yield Round · 3.35x', 'hashrate' => '335.0 TH/s', 'daily' => '+185,000 UGX', 'total' => '3,450,000 UGX'],
+                ['strategy' => 'UGX Bullish Round · 2.15x', 'hashrate' => '186.0 TH/s', 'daily' => '+98,000 UGX', 'total' => '2,120,000 UGX'],
+                ['strategy' => 'USD Stake Multiplier · 1.95x', 'hashrate' => '140.0 TH/s', 'daily' => '+72,000 UGX', 'total' => '1,560,000 UGX'],
+                ['strategy' => 'UGX Parity Mining · 1.80x', 'hashrate' => '150.0 TH/s', 'daily' => '+78,500 UGX', 'total' => '1,340,000 UGX'],
+                ['strategy' => 'USD Turbo Round · 1.65x', 'hashrate' => '90.5 TH/s', 'daily' => '+54,000 UGX', 'total' => '980,000 UGX'],
+                ['strategy' => 'UGX Multiplier Arena · 1.50x', 'hashrate' => '118.0 TH/s', 'daily' => '+62,000 UGX', 'total' => '840,000 UGX'],
             ];
 
-            foreach ($sampleMachines as $idx => $sample) {
+            foreach ($sampleRounds as $idx => $sample) {
                 if ($rank > 6) {
                     break;
                 }
@@ -130,11 +149,11 @@ class HomeController extends Controller
                     'avatar_url' => $avatar,
                     'avatar_initial' => strtoupper(substr($masked, 0, 1)),
                     'avatar_variant' => ($idx % 6) + 1,
-                    'machine' => $sample['name'],
+                    'machine' => $sample['strategy'],
                     'hashrate' => $sample['hashrate'],
                     'daily_output' => $sample['daily'],
                     'total_mined' => $sample['total'],
-                    'status' => 'Active',
+                    'status' => 'Mining',
                 ];
             }
         }
