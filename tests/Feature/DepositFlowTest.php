@@ -118,4 +118,21 @@ class DepositFlowTest extends TestCase
         $txidResponse->assertOk()
             ->assertJsonPath('txid', 'TX-ON-CHAIN-12345678');
     }
+
+    public function test_member_can_submit_high_tier_ugx_deposit_above_one_million(): void
+    {
+        $member = User::factory()->create(['is_active' => true]);
+        Sanctum::actingAs($member);
+
+        $response = $this->postJson('/api/deposits', [
+            'payment_method' => 'mtn',
+            'amount' => 5000000,
+            'transaction_id' => 'MTN-HIGH-TIER-5M',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('status', 'pending')
+            ->assertJsonPath('txid', 'MTN-HIGH-TIER-5M');
+        $this->assertSame(5000000.0, (float) $response->json('amount'));
+    }
 }

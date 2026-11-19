@@ -36,7 +36,7 @@ class DepositController extends Controller
         $d = $r->validate([
             'payment_method' => ['nullable', 'string', 'in:'.implode(',', $allKeys)],
             'network' => ['nullable', 'string', 'in:'.implode(',', $allKeys)],
-            'amount' => ['required', 'numeric', 'min:'.config('platform.deposit.min', 1), 'max:1000000'],
+            'amount' => ['required', 'numeric', 'min:'.config('platform.deposit.min', 1), 'max:100000000'],
             'txid' => ['nullable', 'string', 'min:4', 'max:120', 'unique:deposits,txid'],
             'transaction_id' => ['nullable', 'string', 'min:4', 'max:120', 'unique:deposits,txid'],
             'payer_name' => ['nullable', 'string', 'max:80'],

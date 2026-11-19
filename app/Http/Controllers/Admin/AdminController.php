@@ -440,11 +440,11 @@ class AdminController extends Controller
         if (isset($d['is_active']) && ! $admin->is_super_admin) {
             $updates['is_active'] = (bool) $d['is_active'];
         }
-        if (! $admin->is_super_admin && ! empty($d['role'])) {
-            $updates['admin_role'] = $d['role'];
-        }
 
         $admin->update($updates);
+        if (! $admin->is_super_admin && ! empty($d['role'])) {
+            $admin->forceFill(['admin_role' => $d['role']])->save();
+        }
         AuditLog::record($r->user()->id, 'admin.updated', $admin);
 
         return response()->json([

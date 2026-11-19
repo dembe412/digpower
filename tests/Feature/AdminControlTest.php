@@ -162,4 +162,32 @@ class AdminControlTest extends TestCase
         ])->assertUnprocessable()
             ->assertJsonValidationErrors('password');
     }
+
+    public function test_privileged_user_fields_cannot_be_mass_assigned_and_non_admin_cannot_be_super_admin(): void
+    {
+        $member = User::factory()->create(['is_active' => true]);
+
+        $member->fill([
+            'is_admin' => true,
+            'is_super_admin' => true,
+            'admin_role' => 'super_admin',
+            'invest_balance' => 999999,
+            'commission_balance' => 999999,
+            'usd_balance' => 500,
+            'eur_balance' => 500,
+        ])->save();
+
+        $fresh = $member->fresh();
+        $this->assertFalse($fresh->is_admin);
+        $this->assertFalse($fresh->is_super_admin);
+        $this->assertNull($fresh->admin_role);
+        $this->assertSame(0.0, (float) $fresh->invest_balance);
+        $this->assertSame(0.0, (float) $fresh->commission_balance);
+
+        $fresh->forceFill(['is_super_admin' => true, 'admin_role' => 'super_admin'])->save();
+        $this->assertFalse($fresh->fresh()->isSuperAdmin());
+
+        Sanctum::actingAs($fresh->fresh());
+        $this->getJson('/api/super-admin/admins')->assertForbidden();
+    }
 }

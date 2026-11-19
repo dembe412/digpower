@@ -40,9 +40,10 @@ class VipPurchase extends Model
         }
 
         $end = $at ? Carbon::instance($at) : now();
-        $days = min($this->duration_days, max(0, $this->activated_at->diffInDays($end)));
+        $days = min($this->duration_days, (int) max(0, $this->activated_at->diffInDays($end)));
         $earned = bcdiv(bcmul((string) $this->monthly_salary, (string) $days, 8), '30', 6);
+        $available = bcsub($earned, (string) $this->salary_paid, 6);
 
-        return bcsub($earned, (string) $this->salary_paid, 6);
+        return bccomp($available, '0', 6) > 0 ? $available : '0.000000';
     }
 }

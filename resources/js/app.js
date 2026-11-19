@@ -84,6 +84,71 @@ const safe = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&'
 const icon = (name) => icons[name] || '';
 const amount = (value, digits = 2) => { const number = Number(value); return Number.isFinite(number) ? number.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits }) : '—'; };
 const maskedAmount = (value) => state.hiddenBalance ? '••••••' : amount(value);
+const SOCIAL_CHANNELS = [
+	{ key: 'X', label: 'X', title: 'Share on X (Twitter)' },
+	{ key: 'f', label: 'f', title: 'Share on Facebook' },
+	{ key: 'Telegram', label: 'Telegram', title: 'Share on Telegram' },
+	{ key: 'in', label: 'in', title: 'Share on LinkedIn' },
+	{ key: 'WhatsApp', label: 'WhatsApp', title: 'Share on WhatsApp' },
+	{ key: 'Instagram', label: 'Instagram', title: 'Copy link & open Instagram' },
+	{ key: 'TikTok', label: 'TikTok', title: 'Copy link & open TikTok' },
+];
+
+async function copyToClipboard(text) {
+	if (!text) return false;
+	try {
+		if (navigator.clipboard?.writeText) {
+			await navigator.clipboard.writeText(text);
+			return true;
+		}
+	} catch {}
+	try {
+		const area = document.createElement('textarea');
+		area.value = text;
+		area.setAttribute('readonly', '');
+		area.style.position = 'fixed';
+		area.style.opacity = '0';
+		document.body.appendChild(area);
+		area.select();
+		const ok = document.execCommand('copy');
+		area.remove();
+		return ok;
+	} catch {
+		return false;
+	}
+}
+
+function getShareInviteUrl() {
+	return state.profile?.invite_link || state.team?.invite_link || window.location.origin;
+}
+
+function renderSocialShareButtons(includeNativeShare = false) {
+	const nativeButton = includeNativeShare ? '<button type="button" data-action="share" data-share="Invite link" title="Share invite link">Share</button>' : '';
+	return nativeButton + SOCIAL_CHANNELS.map((channel) => `<button type="button" data-action="share" data-share="${safe(channel.key)}" title="${safe(channel.title)}" aria-label="${safe(channel.title)}">${safe(channel.label)}</button>`).join('');
+}
+
+function extractInviteCodeFromUrl() {
+	const searchParams = new URLSearchParams(window.location.search);
+	const fromSearch = searchParams.get('invite_code');
+	if (fromSearch) return fromSearch.trim();
+	const hash = window.location.hash || '';
+	const queryIndex = hash.indexOf('?');
+	if (queryIndex !== -1) {
+		const hashParams = new URLSearchParams(hash.slice(queryIndex + 1));
+		const fromHash = hashParams.get('invite_code');
+		if (fromHash) return fromHash.trim();
+	}
+	return '';
+}
+
+function openInviteRegistrationIfPresent() {
+	if (state.token) return;
+	const inviteCode = extractInviteCodeFromUrl();
+	const isRegHash = (window.location.hash || '').startsWith('#/reg');
+	if (inviteCode || isRegHash) {
+		authForm('register', inviteCode);
+	}
+}
 const productImages = {
 	1: '/images/products/mining/bronze.webp',
 	2: '/images/products/mining/graphite.webp',
@@ -222,11 +287,7 @@ async function shareToSocial(platform) {
 		: `🔥 Join DigiPowerX! Start digital mining today and earn daily income.\nSign up: ${inviteLink}`;
 
 	// Always copy link to clipboard first
-	try {
-		await navigator.clipboard.writeText(inviteLink);
-	} catch (_) {
-		// Non-fatal if clipboard API requires user interaction or permissions
-	}
+	await copyToClipboard(inviteLink);
 
 	let targetUrl = '';
 	if (p === 'telegram' || p === 'tg') {
@@ -423,7 +484,7 @@ function renderHome() {
 		<section class="section-heading"><div><h2>Mining currencies &amp; live rates</h2><p>Live exchange rates for USD &amp; EUR mining assets</p></div><button class="text-button" data-action="refresh">Refresh rates</button></section>
 		<section class="market-assets">${miningForexCard}</section>
 		${topMinersCard}
-		<section class="share-panel"><h2>Share your link &amp; earn</h2><div class="social-row">${['X', 'f', 'Telegram', 'in', 'WhatsApp', 'Instagram', 'TikTok'].map((name) => `<button data-action="share" data-share="${safe(name)}" title="Share on ${safe(name)}">${safe(name)}</button>`).join('')}</div></section>
+		<section class="share-panel"><h2>Share your link &amp; earn</h2><div class="social-row">${renderSocialShareButtons()}</div></section>
 		<div class="disclaimer"><span>${icon('shield')}</span><span><strong>Risk notice:</strong> Earnings are not guaranteed and depend on reported revenue. You can lose money. ${safe(home?.risk_notice || '')}</span></div>`;
 	renderIcons();
 	setNav();
@@ -974,8 +1035,8 @@ function renderTeam() {
 	const selected = levels.find((item) => Number(item.level) === state.teamLevel);
 	const members = state.teamMembers?.data || [];
 	const memberRows = members.map((member) => `<div class="list-row"><span>${safe(member.joined_at || 'Member')}</span><strong>${safe(member.user)}</strong><span>${member.valid ? '<span class="tag tag-good">Active</span>' : '<span class="tag">Pending</span>'}</span><span>${amount(member.deposited)} UGX</span></div>`).join('');
-	const inviteLink = state.team?.invite_link || '';
-	$('#page-content').innerHTML = `${heading('Referral network', 'My team', 'Track your referrals and the commissions they generate.')}<section class="invite-panel"><div class="invite-copy"><strong>Grow your network</strong><span>Invite code: <b>${safe(state.team?.invite_code || '')}</b></span></div><div class="invite-link"><code>${safe(inviteLink)}</code><button data-action="copy-invite">Copy</button></div><div class="social-row">${['X', 'f', 'Telegram', 'in', 'WhatsApp', 'Instagram', 'TikTok'].map((name) => `<button data-action="share" data-share="${safe(name)}" title="Share on ${safe(name)}">${safe(name)}</button>`).join('')}</div></section>
+	const inviteLink = state.team?.invite_link || state.profile?.invite_link || '';
+	$('#page-content').innerHTML = `${heading('Referral network', 'My team', 'Track your referrals and the commissions they generate.')}<section class="invite-panel"><div class="invite-copy"><strong>Grow your network</strong><span>Invite code: <b>${safe(state.team?.invite_code || '')}</b></span></div><div class="invite-link"><code>${safe(inviteLink)}</code><button data-action="copy-invite">Copy</button></div><div class="social-row">${renderSocialShareButtons(true)}</div></section>
 		<div class="metric-grid"><div class="metric-card"><span>Team size</span><strong>${amount(stats?.team_size, 0)}</strong></div><div class="metric-card"><span>Referral commissions</span><strong>${amount(stats?.ref_commissions)} UGX</strong></div><div class="metric-card"><span>Team deposits</span><strong>${amount(stats?.team_deposits)} UGX</strong></div><div class="metric-card"><span>Team withdrawals</span><strong>${amount(stats?.team_withdrawals)} UGX</strong></div></div>
 		<section class="section-heading"><div><h2>Referral levels</h2><p>Member counts and valid active deposits</p></div><button class="text-button" data-action="commissions">View commissions</button></section><div class="metric-grid">${[1, 2, 3].map((number) => { const level = levels.find((item) => Number(item.level) === number); return `<button class="metric-card level-select ${state.teamLevel === number ? 'is-selected' : ''}" data-team-level="${number}"><span>Level ${number}</span><strong>${level ? `${amount(level.count, 0)} members` : '0 members'}</strong><span class="metric-sub">${level ? `${amount(level.valid, 0)} valid` : '0 valid'}</span></button>`; }).join('')}</div>
 		<section class="section-heading"><div><h2>Level ${state.teamLevel} members</h2><p>${selected ? `${selected.valid} valid · ${selected.count} total` : 'Referral members'}</p></div></section><section class="panel list-panel">${memberRows || emptyPanel('No members at this level yet.')}</section>${renderPagination(state.teamMembers, 'team-members-page')}`;
@@ -1566,9 +1627,10 @@ function toast(message) { const element = $('#toast'); element.textContent = mes
 function showModal(content, kind) { state.modal = kind; $('#modal-content').innerHTML = content; $('#modal-backdrop').hidden = false; $('input,select,button', $('#modal-content'))?.focus(); }
 function closeModal() { $('#modal-backdrop').hidden = true; $('#modal-content').innerHTML = ''; state.modal = null; }
 
-function authForm(mode = 'login') {
+function authForm(mode = 'login', prefillInviteCode = '') {
 	const registering = mode === 'register';
-	showModal(`<p class="eyebrow">DigiPowerX account</p><h2 id="modal-title">${registering ? 'Create account' : 'Welcome back'}</h2><p class="modal-intro">${registering ? 'Create your member account to connect to the platform.' : 'Sign in to view your account and activity.'}</p><form class="form-stack" id="auth-form" data-mode="${mode}"><label class="form-field">Email or phone<input name="identifier" autocomplete="username" required placeholder="you@example.com"></label><label class="form-field">Password<input type="password" name="password" autocomplete="${registering ? 'new-password' : 'current-password'}" minlength="8" required placeholder="At least 8 characters"></label>${registering ? '<label class="form-field">Confirm password<input type="password" name="password_confirmation" autocomplete="new-password" minlength="8" required></label><label class="form-field">Invite code <span class="label">Optional</span><input name="invite_code" inputmode="numeric" placeholder="6-digit code"></label><label class="form-check"><input type="checkbox" name="accept_terms" required><span>I accept the terms and risk acknowledgement. Earnings are not guaranteed.</span></label>' : '<label class="form-field">Authenticator code <span class="label">If enabled</span><input name="totp_code" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code"></label>'}<p class="form-note" data-form-error></p><button class="primary-button" type="submit">${registering ? 'Create account' : 'Sign in'}</button></form><button class="form-switch" data-action="auth-switch">${registering ? 'Already have an account? Sign in' : 'New here? Create an account'}</button>`, 'auth');
+	const inviteCodeValue = prefillInviteCode || extractInviteCodeFromUrl();
+	showModal(`<p class="eyebrow">DigiPowerX account</p><h2 id="modal-title">${registering ? 'Create account' : 'Welcome back'}</h2><p class="modal-intro">${registering ? 'Create your member account to connect to the platform.' : 'Sign in to view your account and activity.'}</p><form class="form-stack" id="auth-form" data-mode="${mode}"><label class="form-field">Email or phone<input name="identifier" autocomplete="username" required placeholder="you@example.com"></label><label class="form-field">Password<input type="password" name="password" autocomplete="${registering ? 'new-password' : 'current-password'}" minlength="8" required placeholder="At least 8 characters"></label>${registering ? `<label class="form-field">Confirm password<input type="password" name="password_confirmation" autocomplete="new-password" minlength="8" required></label><label class="form-field">Invite code <span class="label">Optional</span><input name="invite_code" inputmode="numeric" value="${safe(inviteCodeValue)}" placeholder="6-digit code"></label><label class="form-check"><input type="checkbox" name="accept_terms" required><span>I accept the terms and risk acknowledgement. Earnings are not guaranteed.</span></label>` : '<label class="form-field">Authenticator code <span class="label">If enabled</span><input name="totp_code" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code"></label>'}<p class="form-note" data-form-error></p><button class="primary-button" type="submit">${registering ? 'Create account' : 'Sign in'}</button></form><button class="form-switch" data-action="auth-switch">${registering ? 'Already have an account? Sign in' : 'New here? Create an account'}</button>`, 'auth');
 }
 
 function actionForm(action, options = {}) {
@@ -1598,7 +1660,7 @@ function actionForm(action, options = {}) {
 		withdraw: { title: 'Request withdrawal', intro: `Minimum ${amount(options.min || 5000)} UGX · ${safe(options.fee_pct || '0')}% fee. Payout is processed manually to your Mobile Money account.`, fields: `<label class="form-field">Wallet<select name="wallet"><option value="commission">Commission · ${amount(options.available?.commission)} UGX</option><option value="invest">Invest · ${amount(options.available?.invest)} UGX</option></select></label><label class="form-field">Payout provider<select name="payout_method"><option value="mtn">MTN Mobile Money</option><option value="airtel">Airtel Money</option></select></label><label class="form-field">Mobile Money phone number<input name="phone" type="tel" value="${safe(options.phone || state.profile?.phone || '')}" placeholder="e.g. 0770000000" required></label><label class="form-field">Amount (UGX)<input name="amount" type="number" min="${safe(options.min || 5000)}" step="1000" placeholder="Minimum 5,000 UGX" required></label><label class="form-field">Security PIN<input name="pin" type="password" inputmode="numeric" maxlength="6" required></label>${state.profile?.totp_enabled ? '<label class="form-field">Authenticator code<input name="totp_code" inputmode="numeric" maxlength="8"></label>' : ''}`, submit: 'Submit withdrawal' },
 		transfer: { title: 'Transfer between wallets', intro: 'Move eligible funds between your own wallets in UGX. Locked principal cannot be transferred.', fields: `<label class="form-field">From<select name="from"><option value="commission">Commission</option><option value="invest">Invest</option></select></label><label class="form-field">To<select name="to"><option value="invest">Invest</option><option value="commission">Commission</option></select></label><label class="form-field">Amount (UGX)<input name="amount" type="number" min="1000" step="100" required></label><label class="form-field">Security PIN<input name="pin" type="password" inputmode="numeric" maxlength="6"></label>${state.profile?.totp_enabled ? '<label class="form-field">Authenticator code<input name="totp_code" inputmode="numeric" maxlength="8"></label>' : ''}`, submit: 'Transfer funds' },
 		'set-pin': { title: 'Set security PIN', intro: 'Create a six-digit PIN to protect sensitive wallet actions.', fields: `<label class="form-field">Account password<input name="password" type="password" required></label><label class="form-field">New PIN<input name="new_pin" type="password" inputmode="numeric" minlength="6" maxlength="6" required></label>${state.profile?.has_pin ? '<label class="form-field">Current PIN<input name="current_pin" type="password" inputmode="numeric" maxlength="6" required></label>' : ''}`, submit: 'Save PIN' },
-		password: { title: 'Change password', intro: 'Use a unique password with at least eight characters.', fields: `<label class="form-field">Current password<input name="current_password" type="password" required></label><label class="form-field">New password<input name="password" type="password" minlength="8" required></label><label class="form-field">Confirm new password<input name="password_confirmation" type="password" minlength="8" required></label>${state.profile?.has_pin ? '<label class="form-field">Security PIN<input name="pin" type="password" inputmode="numeric" maxlength="6"></label>' : ''}`, submit: 'Update password' },
+		password: { title: 'Change password', intro: 'Use a unique password with at least eight characters.', fields: `<label class="form-field">Current password<input name="current_password" type="password" required></label><label class="form-field">New password<input name="password" type="password" minlength="8" required></label><label class="form-field">Confirm new password<input name="password_confirmation" type="password" minlength="8" required></label>${state.profile?.totp_enabled ? '<label class="form-field">Authenticator code<input name="totp_code" inputmode="numeric" maxlength="8" required></label>' : ''}`, submit: 'Update password' },
 	};
 	const config = forms[action];
 	showModal(`<p class="eyebrow">Account action</p><h2 id="modal-title">${config.title}</h2><p class="modal-intro">${config.intro}</p><form class="form-stack" id="action-form" data-action="${action}">${config.fields}<p class="form-note" data-form-error></p><button class="primary-button" type="submit">${config.submit}</button></form>`, action);
@@ -1700,7 +1762,8 @@ async function loadWithdrawalsHistoryModal(page = 1) {
 }
 
 async function startAction(action, options = {}) {
-	if (!state.token) { authForm(); return; }
+	const publicActions = ['faq', 'about', 'app'];
+	if (!state.token && !publicActions.includes(action)) { authForm(); return; }
 	if (action === 'deposit') actionForm(action, { ...await api('deposit/options'), ...options });
 	else if (action === 'withdraw') actionForm(action, await api('withdraw/options'));
 	else if (['transfer', 'set-pin', 'password'].includes(action)) actionForm(action);
@@ -1715,9 +1778,17 @@ async function startAction(action, options = {}) {
 		showModal(`<p class="eyebrow">Help center</p><h2 id="modal-title">FAQs</h2><p class="modal-intro">Answers to common questions.</p><div class="faq-list">${rows || emptyPanel('No FAQs are published yet.')}</div>`, 'faq');
 	} else if (['events', 'about', 'app'].includes(action)) {
 		const result = await api(action);
-		const content = action === 'events'
-			? (Array.isArray(result) ? result : result.data || []).map((item) => `<div class="faq-item"><strong>${safe(item.title)}</strong><p>${safe(item.body || item.content || '')}</p></div>`).join('')
-			: `<div class="info-banner"><span>${icon(action === 'app' ? 'app' : 'about')}</span><span>${safe(typeof result === 'string' ? result : result?.description || result?.download_url || 'Information is not available yet.')}</span></div>`;
+		let content = '';
+		if (action === 'events') {
+			content = (Array.isArray(result) ? result : result.data || []).map((item) => `<div class="faq-item"><strong>${safe(item.title)}</strong><p>${safe(item.body || item.content || '')}</p></div>`).join('');
+		} else if (action === 'app') {
+			const downloadUrl = typeof result === 'string' ? result : result?.download_url;
+			const validUrl = downloadUrl && /^https?:\/\//i.test(downloadUrl);
+			content = `<div class="info-banner"><span>${icon('app')}</span><span>${validUrl ? `<a href="${safe(downloadUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--lime);text-decoration:underline;">Download DigiPowerX App</a>` : safe(downloadUrl || 'App download link is not available yet.')}</span></div>`;
+		} else {
+			const aboutText = typeof result === 'string' ? result : result?.text || result?.description || 'Information is not available yet.';
+			content = `<div class="info-banner"><span>${icon('about')}</span><span>${safe(aboutText)}</span></div>`;
+		}
 		showModal(`<p class="eyebrow">DigiPowerX</p><h2 id="modal-title">${action === 'events' ? 'Events and updates' : action === 'app' ? 'Mobile app' : 'About us'}</h2><div class="faq-list">${content || emptyPanel('Nothing is published yet.')}</div>`, action);
 	} else if (action === 'totp') {
 		const result = await api('account/totp/setup', { method: 'POST' });
@@ -1736,6 +1807,9 @@ async function submitAuth(form) {
 		if (mode === 'register') response = await api('auth/register', { method: 'POST', body: JSON.stringify({ email: data.identifier.includes('@') ? data.identifier : null, phone: data.identifier.includes('@') ? null : data.identifier, password: data.password, password_confirmation: data.password_confirmation, invite_code: data.invite_code || null, accept_terms: data.accept_terms === 'on' ? 1 : 0, accept_risk: data.accept_terms === 'on' ? 1 : 0 }) });
 		else response = await api('auth/login', { method: 'POST', body: JSON.stringify({ identifier: data.identifier, password: data.password, totp_code: data.totp_code || null }) });
 		state.token = response.token; sessionStorage.setItem('dp_token', response.token); state.profile = response.user;
+		if (mode === 'register' && window.location.hash.startsWith('#/reg')) {
+			window.history.replaceState(null, '', window.location.pathname + window.location.search);
+		}
 		closeModal(); toast(mode === 'register' ? 'Account created.' : 'Signed in.'); await loadPage(state.page);
 	} catch (error) { errorElement.textContent = error.message; }
 	finally { button.disabled = false; }
@@ -1809,7 +1883,7 @@ document.addEventListener('click', async (event) => {
 		else if (action === 'toggle-balance') { state.hiddenBalance = !state.hiddenBalance; renderHome(); }
 		else if (action === 'product-deposit') await startAction('deposit', { amount: button.dataset.productMin, productName: button.dataset.productName });
 		else if (action === 'product-purchase') showModal(`<p class="eyebrow">Product payment</p><h2 id="modal-title">Buy ${safe(state.products.find((product) => String(product.id) === button.dataset.productId)?.name || 'product')}</h2><p class="modal-intro">Pay from an internal wallet for immediate activation, or submit a manual transaction for admin review.</p><form class="form-stack" id="product-purchase-form" data-product-id="${safe(button.dataset.productId)}"><label class="form-field">Payment source<select name="payment_source"><option value="manual">Manual external payment</option><option value="invest">Invest wallet</option><option value="commission">Commission wallet</option></select></label><label class="form-field">Transaction ID (manual only)<input name="transaction_id" maxlength="120"></label><p class="form-note" data-form-error></p><button class="primary-button" type="submit">Submit purchase</button></form>`, 'product-purchase');
-		else if (action === 'vip-purchase') showModal(`<p class="eyebrow">VIP qualification</p><h2 id="modal-title">Apply for ${safe(state.vip?.packages?.find((pkg) => String(pkg.id) === button.dataset.levelId)?.name || 'VIP')}</h2><p class="modal-intro">Your active product and qualified team are checked before payment. Wallet payments activate immediately; manual payments wait for admin review.</p><form class="form-stack" id="vip-purchase-form" data-level-id="${safe(button.dataset.levelId)}"><label class="form-field">Payment source<select name="payment_source"><option value="manual">Manual external payment</option><option value="invest">Invest wallet</option><option value="commission">Commission wallet</option></select></label><label class="form-field">Transaction ID (manual only)<input name="transaction_id" required maxlength="120"></label><p class="form-note" data-form-error></p><button class="primary-button" type="submit">Submit VIP application</button></form>`, 'vip-purchase');
+		else if (action === 'vip-purchase') showModal(`<p class="eyebrow">VIP qualification</p><h2 id="modal-title">Apply for ${safe(state.vip?.packages?.find((pkg) => String(pkg.id) === button.dataset.levelId)?.name || 'VIP')}</h2><p class="modal-intro">Your active product and qualified team are checked before payment. Wallet payments activate immediately; manual payments wait for admin review.</p><form class="form-stack" id="vip-purchase-form" data-level-id="${safe(button.dataset.levelId)}"><label class="form-field">Payment source<select name="payment_source"><option value="manual">Manual external payment</option><option value="invest">Invest wallet</option><option value="commission">Commission wallet</option></select></label><label class="form-field">Transaction ID (manual only)<input name="transaction_id" maxlength="120"></label><p class="form-note" data-form-error></p><button class="primary-button" type="submit">Submit VIP application</button></form>`, 'vip-purchase');
 		else if (action === 'product-cashout') showModal(`<p class="eyebrow">Product earnings</p><h2 id="modal-title">Cash out earnings</h2><form class="form-stack" id="product-cashout-form" data-purchase-id="${safe(button.dataset.purchaseId)}"><label class="form-field">Payout provider<select name="payout_method"><option value="mtn">MTN Mobile Money</option><option value="airtel">Airtel Money</option></select></label><label class="form-field">Mobile Money phone number<input name="phone" type="tel" value="${safe(state.profile?.phone || '')}" placeholder="e.g. 0770000000" required></label><p class="form-note" data-form-error></p><button class="primary-button" type="submit">Request cash-out</button></form>`, 'product-cashout');
 		else if (action === 'vip') await loadPage('vip');
 		else if (action === 'invite') await loadPage('team');
@@ -1986,7 +2060,7 @@ document.addEventListener('click', async (event) => {
 		else if (action === 'activate-vip-purchase') { await api(`admin/vip-purchases/${button.dataset.purchaseId}/activate`, { method: 'POST' }); toast('VIP application activated.'); await loadPage('admin'); }
 		else if (action === 'reject-vip-purchase') { const note = window.prompt('Reason for rejection:'); if (note) { await api(`admin/vip-purchases/${button.dataset.purchaseId}/reject`, { method: 'POST', body: JSON.stringify({ note }) }); toast('VIP application rejected.'); await loadPage('admin'); } }
 		else if (action === 'refresh') { state.home = null; await loadPage(state.page); }
-		else if (action === 'copy-invite') { await navigator.clipboard.writeText(state.team?.invite_link || ''); toast('Invite link copied.'); }
+		else if (action === 'copy-invite') { await copyToClipboard(getShareInviteUrl()); toast('Invite link copied.'); }
 		else if (action === 'logout') { if (state.token) await api('auth/logout', { method: 'POST' }); clearSession(); state.team = null; state.vip = null; state.mining = null; closeModal(); await loadPage('home'); toast('Signed out.'); }
 		else if (action === 'set-stake-amount') {
 			state.stakeInputAmount = button.dataset.val;
@@ -2352,5 +2426,6 @@ document.addEventListener('input', (event) => {
 		updateForexPreview();
 	}
 });
-async function boot() { renderIcons(); updateThemeToggle(); await loadProfile(); await loadPage('home'); startHomeRefresh(); }
+window.addEventListener('hashchange', openInviteRegistrationIfPresent);
+async function boot() { renderIcons(); updateThemeToggle(); await loadProfile(); await loadPage('home'); startHomeRefresh(); openInviteRegistrationIfPresent(); }
 boot();

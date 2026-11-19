@@ -74,59 +74,71 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        $admin = User::firstOrCreate(['email' => env('ADMIN_EMAIL', 'admin@example.com')], [
-            'name' => 'Super Admin', 'password' => Hash::make(env('ADMIN_PASSWORD', 'ChangeMe!12345')),
-            'is_admin' => true, 'invite_code' => Str::upper(Str::random(6)), 'terms_accepted_at' => now(),
-        ]);
-        if (! $admin->is_admin || ! $admin->is_super_admin || $admin->admin_role !== 'super_admin') {
-            $admin->forceFill([
-                'name' => 'Super Admin',
-                'password' => Hash::make(env('ADMIN_PASSWORD', 'ChangeMe!12345')),
-                'is_admin' => true,
-                'is_super_admin' => true,
-                'admin_role' => 'super_admin',
-            ])->save();
-        }
+        $isProduction = app()->isProduction();
 
-        $opsAdmin = User::updateOrCreate(['email' => 'ops@digipowerx.test'], [
-            'name' => 'Operations Admin',
-            'password' => Hash::make('ChangeMe!12345'),
-            'is_admin' => true,
-            'is_super_admin' => false,
-            'admin_role' => 'admin',
-            'is_active' => true,
-            'invite_code' => 'OPS001',
-            'terms_accepted_at' => now(),
-        ]);
+        $admin = $this->seedAdminAccount(
+            email: env('ADMIN_EMAIL', $isProduction ? null : 'admin@example.com'),
+            password: env('ADMIN_PASSWORD', $isProduction ? null : 'ChangeMe!12345'),
+            name: 'Super Admin',
+            role: 'super_admin',
+            isSuperAdmin: true,
+        );
 
-        $manager = User::updateOrCreate(['email' => 'manager@digipowerx.test'], [
-            'name' => 'Customer Manager',
-            'password' => Hash::make('ChangeMe!12345'),
-            'is_admin' => true,
-            'is_super_admin' => false,
-            'admin_role' => 'manager',
-            'is_active' => true,
-            'invite_code' => 'MGR001',
-            'terms_accepted_at' => now(),
-        ]);
+        $this->seedAdminAccount(
+            email: env('OPS_ADMIN_EMAIL', $isProduction ? null : 'ops@digipowerx.test'),
+            password: env('OPS_ADMIN_PASSWORD', $isProduction ? null : 'ChangeMe!12345'),
+            name: 'Operations Admin',
+            role: 'admin',
+            isSuperAdmin: false,
+            inviteCode: 'OPS001',
+        );
+
+        $this->seedAdminAccount(
+            email: env('MANAGER_EMAIL', $isProduction ? null : 'manager@digipowerx.test'),
+            password: env('MANAGER_PASSWORD', $isProduction ? null : 'ChangeMe!12345'),
+            name: 'Customer Manager',
+            role: 'manager',
+            isSuperAdmin: false,
+            inviteCode: 'MGR001',
+        );
 
         Announcement::firstOrCreate(['title' => 'Welcome to '.config('platform.name')], ['kind' => 'ticker']);
 
-        Faq::insert([
-            ['question' => 'Are returns guaranteed?', 'answer' => 'No. Earnings are distributed pro-rata from revenue the platform actually reports. Percentages shown on plans are indicative targets and can be lower or zero. You can lose money.', 'sort' => 1, 'is_active' => true, 'created_at' => now(), 'updated_at' => now()],
-            ['question' => 'When can I withdraw my deposit?', 'answer' => 'Deposits are locked for the plan window. Claimed earnings and referral rewards can be withdrawn at any time, subject to review.', 'sort' => 2, 'is_active' => true, 'created_at' => now(), 'updated_at' => now()],
-        ]);
+        $defaultFaqs = [
+            [
+                'question' => 'Are returns guaranteed?',
+                'answer' => 'No. Earnings are distributed pro-rata from revenue the platform actually reports. Percentages shown on plans are indicative targets and can be lower or zero. You can lose money.',
+                'sort' => 1,
+                'is_active' => true,
+            ],
+            [
+                'question' => 'When can I withdraw my deposit?',
+                'answer' => 'Deposits are locked for the plan window. Claimed earnings and referral rewards can be withdrawn at any time, subject to review.',
+                'sort' => 2,
+                'is_active' => true,
+            ],
+        ];
+        foreach ($defaultFaqs as $faq) {
+            Faq::firstOrCreate(['question' => $faq['question']], $faq);
+        }
 
-        Setting::put('about', ['text' => 'Edit this in the admin panel.']);
-        Setting::put('video_intro_url', null);
-        Setting::put('app_download_url', null);
-        Setting::put('support_contact', ['telegram' => null, 'email' => null]);
+        $defaultSettings = [
+            'about' => ['text' => config('platform.name').' provides mineral mining products, transparent manual administration, and community referral rewards.'],
+            'video_intro_url' => null,
+            'app_download_url' => null,
+            'support_contact' => ['telegram' => null, 'email' => null],
+        ];
+        foreach ($defaultSettings as $key => $value) {
+            Setting::firstOrCreate(['key' => $key], ['value' => $value]);
+        }
 
-        if (ChatMessage::count() === 0 && $admin) {
+        $welcomeAuthor = $admin ?? User::where('is_admin', true)->first();
+
+        if (ChatMessage::count() === 0 && $welcomeAuthor) {
             $msg1 = ChatMessage::create([
                 'type' => 'group',
                 'room' => 'community',
-                'user_id' => $admin->id,
+                'user_id' => $welcomeAuthor->id,
                 'message' => '👋 Welcome to the official DigiPowerX community group chat! Discuss daily earnings, share machine updates, and connect with other miners here.',
                 'is_staff' => true,
                 'created_at' => now()->subHours(3),
@@ -134,12 +146,55 @@ class DatabaseSeeder extends Seeder
             ChatMessage::create([
                 'type' => 'group',
                 'room' => 'community',
-                'user_id' => $admin->id,
+                'user_id' => $welcomeAuthor->id,
                 'reply_to_id' => $msg1->id,
                 'message' => '💡 Tip: For private balance issues or deposit questions, open your dedicated Private Chat in "My Account" to speak directly with an account manager.',
                 'is_staff' => true,
                 'created_at' => now()->subHours(2),
             ]);
         }
+    }
+
+    private function seedAdminAccount(
+        ?string $email,
+        ?string $password,
+        string $name,
+        string $role,
+        bool $isSuperAdmin,
+        ?string $inviteCode = null,
+    ): ?User {
+        if (! $email || ! $password) {
+            return null;
+        }
+
+        $user = User::where('email', $email)->first();
+
+        if (! $user) {
+            $user = new User([
+                'name' => $name,
+                'email' => $email,
+                'password' => Hash::make($password),
+                'invite_code' => $inviteCode ?? Str::upper(Str::random(6)),
+                'terms_accepted_at' => now(),
+                'is_active' => true,
+            ]);
+            $user->forceFill([
+                'is_admin' => true,
+                'is_super_admin' => $isSuperAdmin,
+                'admin_role' => $role,
+            ])->save();
+
+            return $user;
+        }
+
+        if (! $user->is_admin || $user->is_super_admin !== $isSuperAdmin || $user->admin_role !== $role) {
+            $user->forceFill([
+                'is_admin' => true,
+                'is_super_admin' => $isSuperAdmin,
+                'admin_role' => $role,
+            ])->save();
+        }
+
+        return $user;
     }
 }

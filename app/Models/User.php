@@ -13,7 +13,16 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    protected $guarded = ['id', 'is_admin'];
+    protected $guarded = [
+        'id',
+        'is_admin',
+        'is_super_admin',
+        'admin_role',
+        'invest_balance',
+        'commission_balance',
+        'usd_balance',
+        'eur_balance',
+    ];
 
     protected $hidden = ['password', 'remember_token', 'pin_hash', 'totp_secret'];
 
@@ -40,7 +49,7 @@ class User extends Authenticatable
 
     public function isSuperAdmin(): bool
     {
-        return (bool) $this->is_super_admin || $this->admin_role === 'super_admin';
+        return (bool) $this->is_admin && ((bool) $this->is_super_admin || $this->admin_role === 'super_admin');
     }
 
     public function isOperationsAdmin(): bool
