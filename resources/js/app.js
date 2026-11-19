@@ -208,6 +208,77 @@ function withdrawalRows(rows = []) {
 }
 function sessionPrompt() { return state.profile ? '' : `<button class="connect-inline" data-action="auth">${icon('lock')} Sign in to load your account data ${icon('arrow')}</button>`; }
 
+async function shareToSocial(platform) {
+	const inviteCode = state.team?.invite_code || state.profile?.invite_code || '';
+	const baseOrigin = window.location.origin;
+	const inviteLink = inviteCode
+		? `${baseOrigin}/#/reg?invite_code=${encodeURIComponent(inviteCode)}`
+		: (state.team?.invite_link || state.profile?.invite_link || `${baseOrigin}/#/reg`);
+
+	const p = String(platform || '').toLowerCase().trim();
+	const shareTitle = 'DigiPowerX Digital Mining';
+	const shareMsg = inviteCode
+		? `🔥 Join me on DigiPowerX! Start digital mining today and earn daily income.\nUse my invite code: ${inviteCode}\nSign up: ${inviteLink}`
+		: `🔥 Join DigiPowerX! Start digital mining today and earn daily income.\nSign up: ${inviteLink}`;
+
+	// Always copy link to clipboard first
+	try {
+		await navigator.clipboard.writeText(inviteLink);
+	} catch (_) {
+		// Non-fatal if clipboard API requires user interaction or permissions
+	}
+
+	let targetUrl = '';
+	if (p === 'telegram' || p === 'tg') {
+		targetUrl = `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent(shareMsg)}`;
+		toast('Opening Telegram... Link copied to clipboard!');
+	} else if (p === 'whatsapp' || p === 'wa') {
+		targetUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareMsg)}`;
+		toast('Opening WhatsApp... Link copied to clipboard!');
+	} else if (p === 'x' || p === 'twitter') {
+		targetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareMsg)}`;
+		toast('Opening X (Twitter)... Link copied to clipboard!');
+	} else if (p === 'f' || p === 'facebook' || p === 'fb') {
+		targetUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(inviteLink)}&quote=${encodeURIComponent(shareMsg)}`;
+		toast('Opening Facebook... Link copied to clipboard!');
+	} else if (p === 'in' || p === 'linkedin') {
+		targetUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(inviteLink)}`;
+		toast('Opening LinkedIn... Link copied to clipboard!');
+	} else if (p === 'instagram' || p === 'ig') {
+		toast('Invite link copied! Opening Instagram to share in your story or bio...');
+		targetUrl = 'https://www.instagram.com/';
+	} else if (p === 'tiktok') {
+		toast('Invite link copied! Opening TikTok to share in your profile or message...');
+		targetUrl = 'https://www.tiktok.com/';
+	} else {
+		if (navigator.share) {
+			try {
+				await navigator.share({
+					title: shareTitle,
+					text: shareMsg,
+					url: inviteLink,
+				});
+				toast('Shared successfully!');
+				return;
+			} catch (err) {
+				if (err.name !== 'AbortError') {
+					toast('Invite link copied to clipboard!');
+				}
+				return;
+			}
+		}
+		toast('Invite link copied to clipboard!');
+		return;
+	}
+
+	if (targetUrl) {
+		const win = window.open(targetUrl, '_blank', 'noopener,noreferrer');
+		if (!win) {
+			toast('Popup blocked by browser. Link was copied to your clipboard!');
+		}
+	}
+}
+
 function renderHome() {
 	const home = state.home;
 	const wallet = home?.wallets;
@@ -350,7 +421,7 @@ function renderHome() {
 		<section class="section-heading"><div><h2>Mining currencies &amp; live rates</h2><p>Live exchange rates for USD &amp; EUR mining assets</p></div><button class="text-button" data-action="refresh">Refresh rates</button></section>
 		<section class="market-assets">${miningForexCard}</section>
 		${topMinersCard}
-		<section class="share-panel"><h2>Share your link &amp; earn</h2><div class="social-row">${['X', 'f', 'Telegram', 'in', 'WhatsApp', 'Instagram', 'TikTok'].map((name) => `<button data-action="share" data-share="${safe(name)}">${safe(name)}</button>`).join('')}</div></section>
+		<section class="share-panel"><h2>Share your link &amp; earn</h2><div class="social-row">${['X', 'f', 'Telegram', 'in', 'WhatsApp', 'Instagram', 'TikTok'].map((name) => `<button data-action="share" data-share="${safe(name)}" title="Share on ${safe(name)}">${safe(name)}</button>`).join('')}</div></section>
 		<div class="disclaimer"><span>${icon('shield')}</span><span><strong>Risk notice:</strong> Earnings are not guaranteed and depend on reported revenue. You can lose money. ${safe(home?.risk_notice || '')}</span></div>`;
 	renderIcons();
 	setNav();
@@ -902,7 +973,7 @@ function renderTeam() {
 	const members = state.teamMembers?.data || [];
 	const memberRows = members.map((member) => `<div class="list-row"><span>${safe(member.joined_at || 'Member')}</span><strong>${safe(member.user)}</strong><span>${member.valid ? '<span class="tag tag-good">Active</span>' : '<span class="tag">Pending</span>'}</span><span>${amount(member.deposited)} UGX</span></div>`).join('');
 	const inviteLink = state.team?.invite_link || '';
-	$('#page-content').innerHTML = `${heading('Referral network', 'My team', 'Track your referrals and the commissions they generate.')}<section class="invite-panel"><div class="invite-copy"><strong>Grow your network</strong><span>Invite code: <b>${safe(state.team?.invite_code || '')}</b></span></div><div class="invite-link"><code>${safe(inviteLink)}</code><button data-action="copy-invite">Copy</button></div><div class="social-row"><button data-action="share" data-share="Invite link">Share</button></div></section>
+	$('#page-content').innerHTML = `${heading('Referral network', 'My team', 'Track your referrals and the commissions they generate.')}<section class="invite-panel"><div class="invite-copy"><strong>Grow your network</strong><span>Invite code: <b>${safe(state.team?.invite_code || '')}</b></span></div><div class="invite-link"><code>${safe(inviteLink)}</code><button data-action="copy-invite">Copy</button></div><div class="social-row">${['X', 'f', 'Telegram', 'in', 'WhatsApp', 'Instagram', 'TikTok'].map((name) => `<button data-action="share" data-share="${safe(name)}" title="Share on ${safe(name)}">${safe(name)}</button>`).join('')}</div></section>
 		<div class="metric-grid"><div class="metric-card"><span>Team size</span><strong>${amount(stats?.team_size, 0)}</strong></div><div class="metric-card"><span>Referral commissions</span><strong>${amount(stats?.ref_commissions)} UGX</strong></div><div class="metric-card"><span>Team deposits</span><strong>${amount(stats?.team_deposits)} UGX</strong></div><div class="metric-card"><span>Team withdrawals</span><strong>${amount(stats?.team_withdrawals)} UGX</strong></div></div>
 		<section class="section-heading"><div><h2>Referral levels</h2><p>Member counts and valid active deposits</p></div><button class="text-button" data-action="commissions">View commissions</button></section><div class="metric-grid">${[1, 2, 3].map((number) => { const level = levels.find((item) => Number(item.level) === number); return `<button class="metric-card level-select ${state.teamLevel === number ? 'is-selected' : ''}" data-team-level="${number}"><span>Level ${number}</span><strong>${level ? `${amount(level.count, 0)} members` : '0 members'}</strong><span class="metric-sub">${level ? `${amount(level.valid, 0)} valid` : '0 valid'}</span></button>`; }).join('')}</div>
 		<section class="section-heading"><div><h2>Level ${state.teamLevel} members</h2><p>${selected ? `${selected.valid} valid · ${selected.count} total` : 'Referral members'}</p></div></section><section class="panel list-panel">${memberRows || emptyPanel('No members at this level yet.')}</section>${renderPagination(state.teamMembers, 'team-members-page')}`;
@@ -1741,7 +1812,7 @@ document.addEventListener('click', async (event) => {
 		else if (action === 'vip') await loadPage('vip');
 		else if (action === 'invite') await loadPage('team');
 		else if (['events', 'about', 'app'].includes(action)) await startAction(action);
-		else if (action === 'share') { await navigator.clipboard.writeText(state.team?.invite_link || window.location.href); toast(`Shared via ${button.dataset.share}.`); }
+		else if (action === 'share') await shareToSocial(button.dataset.share);
 		else if (action === 'save-admin-prices') {
 			const overrides = {};
 			$$('.admin-price-row', $('#admin-price-form')).forEach((row) => {

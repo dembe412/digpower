@@ -3,7 +3,7 @@
 return [
     'name' => env('PLATFORM_NAME', 'DigiPowerX'),
     'currency' => env('PLATFORM_CURRENCY', 'UGX'),
-    'frontend_url' => env('FRONTEND_URL', 'http://localhost:5173'),
+    'frontend_url' => env('FRONTEND_URL', env('APP_URL', 'http://127.0.0.1:8000')),
 
     // Hashrate credited per 1 UGX of active deposit (display + pro-rata weight for yield distribution).
     'hashrate_per_usd' => (float) env('HASHRATE_PER_USD', 0.5),
