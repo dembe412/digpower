@@ -22,6 +22,7 @@ Route::prefix($routePrefix)->middleware(['auth:sanctum', 'active'])->group(funct
 
 Route::prefix('admin/'.$routePrefix)->middleware(array_merge(['auth:sanctum', 'active'], config('stake_rounds.admin_middleware')))->group(function () {
     Route::get('summary', [StakeAdminController::class, 'summary']);
+    Route::post('settings', [StakeAdminController::class, 'updateSettings']);
     Route::get('rounds', [StakeAdminController::class, 'rounds']);
     Route::get('rounds/{round}/stakes', [StakeAdminController::class, 'stakes']);
     Route::post('pause', [StakeAdminController::class, 'pause']);

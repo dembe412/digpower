@@ -1143,7 +1143,7 @@ function renderAdmin() {
 		<div class="admin-nav-tabs">
 			<button class="admin-nav-tab ${activeTab === 'clients' ? 'active' : ''}" data-action="switch-admin-tab" data-admin-tab="clients">👥 Customers & Machines</button>
 			${!isCustomerManager ? `<button class="admin-nav-tab ${activeTab === 'transactions' ? 'active' : ''}" data-action="switch-admin-tab" data-admin-tab="transactions">💳 Transactions & Approvals</button>` : ''}
-			${!isCustomerManager ? `<button class="admin-nav-tab ${activeTab === 'catalog' ? 'active' : ''}" data-action="switch-admin-tab" data-admin-tab="catalog">📦 Equipment & Pricing</button>` : ''}
+			${!isCustomerManager ? `<button class="admin-nav-tab ${activeTab === 'catalog' ? 'active' : ''}" data-action="switch-admin-tab" data-admin-tab="catalog">⛏️ Mining & Equipment</button>` : ''}
 			${isSuperAdmin ? `<button class="admin-nav-tab ${activeTab === 'admins' ? 'active' : ''}" data-action="switch-admin-tab" data-admin-tab="admins">🛡️ Staff Roster</button>` : ''}
 		</div>
 	`;
@@ -1370,16 +1370,21 @@ function renderAdmin() {
 			</section>
 		`;
 	} else if (activeTab === 'catalog') {
-		const exchanges = { binance: 'Binance', okx: 'OKX', huobi: 'Huobi', coinbase: 'Coinbase' };
-		const priceRows = prices.flatMap((row) => Object.entries(row.exchanges || {}).map(([exchange, quote]) => `
-			<div class="admin-price-row">
-				<strong>${safe(row.symbol)}</strong>
-				<span>${safe(exchanges[exchange] || exchange)}</span>
-				<input name="price" type="number" step="any" min="0" value="${quote?.source === 'admin' ? safe(quote.price) : ''}" placeholder="${quote?.price ? safe(quote.price) : 'Manual price'}" data-symbol="${safe(row.symbol)}" data-exchange="${safe(exchange)}" ${!isOpsAdmin ? 'disabled' : ''}>
-				<input name="change_pct" type="number" step="any" value="${quote?.source === 'admin' ? safe(quote.change_pct) : ''}" placeholder="24h %" ${!isOpsAdmin ? 'disabled' : ''}>
-				<label><input name="enabled" type="checkbox" ${quote?.source === 'admin' ? 'checked' : ''} ${!isOpsAdmin ? 'disabled' : ''}> Managed</label>
+		const stakeSummary = state.admin.stakeSummary || {};
+		const stakeSettings = stakeSummary.settings || {};
+		const isPaused = Boolean(stakeSummary.paused);
+		const recentRounds = state.admin.stakeRounds?.data || [];
+
+		const stakeRoundRows = recentRounds.slice(0, 8).map((r) => `
+			<div class="admin-table-row" style="display:grid;grid-template-columns:1fr 1fr 1.2fr 1.2fr 1.2fr 1fr;gap:8px;font-size:12px;padding:8px 12px;border-bottom:1px solid #222;align-items:center;">
+				<strong>#${safe(r.id)}</strong>
+				<span><span class="tag ${r.status === 'settled' ? 'tag-good' : r.status === 'running' ? 'tag-good' : ''}">${safe(r.status)}</span></span>
+				<span>${amount(r.pool_total || 0)} USDT</span>
+				<span>${amount(r.paid_total || 0)} USDT</span>
+				<span style="color:var(--lime);font-weight:600;">${amount(r.house_take || 0)} USDT</span>
+				<span>${safe(r.players || 0)} players</span>
 			</div>
-		`)).join('');
+		`).join('');
 
 		const productRows = products.map((product) => `
 			<div class="admin-table-row product-admin-row" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px;border-bottom:1px solid #222;">
@@ -1405,20 +1410,74 @@ function renderAdmin() {
 
 		tabContent = `
 			<section class="admin-section">
+				<div class="section-heading" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+					<div>
+						<h2>⚡ Stake Rounds Mining Engine &amp; Strategy</h2>
+						<p>Real-time simulated mining rounds, provably fair engine parameters, and platform risk margins.</p>
+					</div>
+					<div style="display:flex;align-items:center;gap:10px;">
+						<span class="tag ${isPaused ? 'danger-button' : 'tag-good'}" style="font-size:12px;padding:5px 12px;">
+							${isPaused ? '🛑 Engine Paused' : '⚡ Engine Active (Running)'}
+						</span>
+						${isOpsAdmin ? `
+							<button class="primary-button" data-action="toggle-stake-pause" data-paused="${isPaused ? '1' : '0'}" style="font-size:12px;padding:6px 14px;background:${isPaused ? 'var(--lime);color:#000;' : '#e55353;color:#fff;'}">
+								${isPaused ? '▶️ Resume Engine' : '⏸️ Pause Engine'}
+							</button>
+						` : ''}
+					</div>
+				</div>
+
+				<div class="metric-grid admin-metrics" style="margin:14px 0;">
+					<div class="metric-card"><span>Settled Rounds</span><strong>${safe(stakeSummary.rounds_settled || 0)}</strong></div>
+					<div class="metric-card"><span>Total Pool Staked</span><strong>${amount(stakeSummary.total_staked || 0)} USDT</strong></div>
+					<div class="metric-card"><span>Total Paid to Miners</span><strong>${amount(stakeSummary.total_paid_out || 0)} USDT</strong></div>
+					<div class="metric-card"><span>House Take (Margin)</span><strong style="color:var(--lime);">${amount(stakeSummary.house_take || 0)} USDT</strong></div>
+					<div class="metric-card"><span>Stakes In Play</span><strong>${amount(stakeSummary.in_play || 0)} USDT</strong></div>
+					<div class="metric-card"><span>Void / Refunded</span><strong>${safe(stakeSummary.rounds_void || 0)}</strong></div>
+				</div>
+
+				<form id="admin-stake-settings-form" class="admin-form" style="margin-top:16px;">
+					<h3 style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--foreground);">Strategy Parameters &amp; House Controls</h3>
+					<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px;">
+						<label class="form-field">Payout Cap (%) <small style="color:var(--muted);">(House takes remaining ${100 - Number(stakeSettings.payout_cap_pct || 90)}%)</small>
+							<input name="payout_cap_pct" type="number" step="1" min="50" max="99" value="${safe(stakeSettings.payout_cap_pct || 90)}" ${!isOpsAdmin ? 'disabled' : ''} required>
+						</label>
+						<label class="form-field">Round Countdown (Seconds)
+							<input name="open_seconds" type="number" step="1" min="5" max="120" value="${safe(stakeSettings.open_seconds || 15)}" ${!isOpsAdmin ? 'disabled' : ''} required>
+						</label>
+						<label class="form-field">Min Stake (USDT)
+							<input name="min_stake" type="number" step="any" min="0.1" value="${safe(stakeSettings.min_stake || 1)}" ${!isOpsAdmin ? 'disabled' : ''} required>
+						</label>
+						<label class="form-field">Max Stake (USDT)
+							<input name="max_stake" type="number" step="any" min="1" value="${safe(stakeSettings.max_stake || 500)}" ${!isOpsAdmin ? 'disabled' : ''} required>
+						</label>
+						<label class="form-field">Default Daily Limit (USDT)
+							<input name="default_daily_limit" type="number" step="1" min="1" value="${safe(stakeSettings.default_daily_limit || 100)}" ${!isOpsAdmin ? 'disabled' : ''} required>
+						</label>
+						<label class="form-field">Volatility (Basis Points)
+							<input name="volatility_bp" type="number" step="1" min="10" max="500" value="${safe(stakeSettings.volatility_bp || 60)}" ${!isOpsAdmin ? 'disabled' : ''} required>
+						</label>
+					</div>
+					${isOpsAdmin ? `<button class="primary-button" type="submit" style="margin-top:14px;">Save Mining Strategy Controls</button>` : ''}
+				</form>
+
+				<div style="margin-top:20px;">
+					<h3 style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--foreground);">Recent Live Rounds</h3>
+					<div class="admin-table">
+						<div class="admin-table-head" style="display:grid;grid-template-columns:1fr 1fr 1.2fr 1.2fr 1.2fr 1fr;gap:8px;">
+							<span>Round</span><span>Status</span><span>Total Pool</span><span>Paid Out</span><span>House Take</span><span>Participants</span>
+						</div>
+						${stakeRoundRows || emptyPanel('No rounds have completed yet.')}
+					</div>
+				</div>
+			</section>
+
+			<section class="admin-section">
 				<div class="section-heading" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
 					<div><h2>Mining Equipment Catalog</h2><p>Price, daily return, duration, and status for equipment.</p></div>
 					${isOpsAdmin ? `<button class="primary-button" data-action="new-product-modal" style="font-size:12px;padding:8px 16px;white-space:nowrap;">➕ Add Equipment</button>` : ''}
 				</div>
 				<div class="admin-table">${productRows || emptyPanel('No products configured.')}</div>
-			</section>
-
-			<section class="admin-section">
-				<div class="section-heading"><div><h2>Live Prices & Forex Overrides</h2><p>Set manual market prices or allow live oracle quotes.</p></div></div>
-				<form id="admin-price-form" class="admin-price-form">
-					<div class="admin-price-head"><span>Asset</span><span>Exchange</span><span>Price</span><span>24h %</span><span>Source</span></div>
-					${priceRows}
-				</form>
-				${isOpsAdmin ? `<button class="primary-button" data-action="save-admin-prices">Save Price Controls</button>` : ''}
 			</section>
 
 			<section class="admin-section">
@@ -1574,6 +1633,8 @@ async function loadPage(page = state.page) {
 				reqs.push(api(`admin/vip-purchases?${txStatusQ}page=1`).catch(() => ({ data: [] })));
 				reqs.push(api(`admin/deposits?${txStatusQ}page=${state.adminDepositPage || 1}`).catch(() => ({ data: [] })));
 				reqs.push(api(`admin/withdrawals?${txStatusQ}page=${state.adminWithdrawalPage || 1}`).catch(() => ({ data: [] })));
+				reqs.push(api('admin/stake/summary').catch(() => ({})));
+				reqs.push(api('admin/stake/rounds?page=1').catch(() => ({ data: [] })));
 			}
 			if (role === 'super_admin') {
 				reqs.push(api('super-admin/admins').catch(() => []));
@@ -1593,9 +1654,11 @@ async function loadPage(page = state.page) {
 				state.admin.vipPurchases = results[5] || { data: [] };
 				state.admin.deposits = results[6] || { data: [] };
 				state.admin.withdrawals = results[7] || { data: [] };
+				state.admin.stakeSummary = results[8] || {};
+				state.admin.stakeRounds = results[9] || { data: [] };
 			}
 			if (role === 'super_admin') {
-				state.admin.adminsList = results[8] || [];
+				state.admin.adminsList = results[10] || [];
 			}
 		}
 		else if (page === 'mining' && state.token) {
@@ -2023,6 +2086,18 @@ document.addEventListener('click', async (event) => {
 				toast(error.message);
 			}
 		}
+		else if (action === 'toggle-stake-pause') {
+			const currentlyPaused = button.dataset.paused === '1';
+			const newPaused = !currentlyPaused;
+			if (!window.confirm(`${newPaused ? 'Pause' : 'Resume'} the Stake Rounds mining engine?`)) return;
+			try {
+				await api('admin/stake/pause', { method: 'POST', body: JSON.stringify({ paused: newPaused }) });
+				toast(newPaused ? 'Mining engine paused.' : 'Mining engine resumed.');
+				await loadPage('admin');
+			} catch (error) {
+				toast(error.message);
+			}
+		}
 		else if (action === 'switch-admin-tab') {
 			state.adminTab = button.dataset.adminTab;
 			renderAdmin();
@@ -2400,6 +2475,29 @@ document.addEventListener('submit', async (event) => {
 			await api('admin/announcements', { method: 'POST', body: JSON.stringify({ ...data, is_active: data.is_active === 'on' }) });
 			form.reset(); toast('Announcement published.'); await loadPage('admin');
 		} catch (error) { toast(error.message); }
+	}
+	else if (form.id === 'admin-stake-settings-form') {
+		event.preventDefault();
+		const button = $('button[type="submit"]', form);
+		if (button) button.disabled = true;
+		const formData = new FormData(form);
+		const payload = {
+			payout_cap_pct: Number(formData.get('payout_cap_pct')),
+			open_seconds: Number(formData.get('open_seconds')),
+			min_stake: Number(formData.get('min_stake')),
+			max_stake: Number(formData.get('max_stake')),
+			default_daily_limit: Number(formData.get('default_daily_limit')),
+			volatility_bp: Number(formData.get('volatility_bp')),
+		};
+		try {
+			const res = await api('admin/stake/settings', { method: 'POST', body: JSON.stringify(payload) });
+			toast(res.message || 'Mining strategy controls updated.');
+			await loadPage('admin');
+		} catch (error) {
+			toast(error.message);
+		} finally {
+			if (button) button.disabled = false;
+		}
 	}
 	else if (form.id === 'stake-confirm-adult-form') {
 		event.preventDefault(); const button = $('button[type="submit"]', form); const errorElement = $('[data-form-error]', form); button.disabled = true;

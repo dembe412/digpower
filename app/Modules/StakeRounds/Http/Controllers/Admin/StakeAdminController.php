@@ -14,6 +14,14 @@ class StakeAdminController extends Controller
     public function summary()
     {
         $done = StakeRound::where('status', 'settled');
+        $settings = Setting::get('stake_settings', [
+            'payout_cap_pct' => config('stake_rounds.payout_cap_pct', '90'),
+            'open_seconds' => config('stake_rounds.open_seconds', 15),
+            'min_stake' => config('stake_rounds.min_stake', '1'),
+            'max_stake' => config('stake_rounds.max_stake', '500'),
+            'default_daily_limit' => config('stake_rounds.default_daily_limit', '100'),
+            'volatility_bp' => config('stake_rounds.rate.volatility_bp', 60),
+        ]);
 
         return response()->json([
             'rounds_settled' => (clone $done)->count(),
@@ -23,7 +31,25 @@ class StakeAdminController extends Controller
             'house_take' => (string) ((clone $done)->sum('house_take') ?: '0'),
             'in_play' => (string) (Stake::whereIn('status', ['active', 'cashout_requested'])->sum('amount') ?: '0'),
             'paused' => (bool) (Setting::get('stake_paused')['v'] ?? false),
+            'settings' => $settings,
         ]);
+    }
+
+    public function updateSettings(Request $r)
+    {
+        $d = $r->validate([
+            'payout_cap_pct' => 'required|numeric|min:50|max:99',
+            'open_seconds' => 'required|integer|min:5|max:120',
+            'min_stake' => 'required|numeric|min:0.1',
+            'max_stake' => 'required|numeric|min:1',
+            'default_daily_limit' => 'required|numeric|min:1',
+            'volatility_bp' => 'required|integer|min:10|max:500',
+        ]);
+
+        Setting::put('stake_settings', $d);
+        AuditLog::record($r->user()->id, 'stake.settings_updated', null, $d);
+
+        return response()->json(['settings' => $d, 'message' => 'Mining strategy settings updated.']);
     }
 
     public function rounds()

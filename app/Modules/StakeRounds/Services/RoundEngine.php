@@ -73,11 +73,14 @@ class RoundEngine
     private function openRound(Carbon $now): StakeRound
     {
         $seed = bin2hex(random_bytes(32));
+        $settings = Setting::get('stake_settings', []);
+        $openSeconds = (int) ($settings['open_seconds'] ?? config('stake_rounds.open_seconds'));
+        $volatility = (int) ($settings['volatility_bp'] ?? config('stake_rounds.rate.volatility_bp'));
 
         return StakeRound::create([
-            'status' => 'open', 'opens_at' => $now, 'starts_at' => $now->copy()->addSeconds(config('stake_rounds.open_seconds')),
+            'status' => 'open', 'opens_at' => $now, 'starts_at' => $now->copy()->addSeconds($openSeconds),
             'server_seed' => $seed, 'server_seed_hash' => hash('sha256', $seed),
-            'volatility_bp' => config('stake_rounds.rate.volatility_bp'), 'tick_ms' => config('stake_rounds.tick_ms'),
+            'volatility_bp' => $volatility, 'tick_ms' => config('stake_rounds.tick_ms'),
         ]);
     }
 
@@ -96,7 +99,9 @@ class RoundEngine
             return $round;
         }
 
-        $cap = bcdiv(bcmul($pool, (string) config('stake_rounds.payout_cap_pct'), 8), '100', 6);
+        $settings = Setting::get('stake_settings', []);
+        $payoutCapPct = (string) ($settings['payout_cap_pct'] ?? config('stake_rounds.payout_cap_pct'));
+        $cap = bcdiv(bcmul($pool, $payoutCapPct, 8), '100', 6);
         $clientSeed = hash('sha256', $stakes->map(fn ($s) => "{$s->id}:{$s->user_id}:{$s->side}:{$s->amount}")->implode('|'));
 
         $round->update([

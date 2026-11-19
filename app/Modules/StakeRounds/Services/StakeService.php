@@ -2,6 +2,7 @@
 
 namespace App\Modules\StakeRounds\Services;
 
+use App\Models\Setting;
 use App\Models\User;
 use App\Modules\StakeRounds\Contracts\WalletGateway;
 use App\Modules\StakeRounds\Models\Stake;
@@ -86,8 +87,11 @@ class StakeService
         if ($this->engine->paused()) {
             $this->fail('Stake Rounds is currently unavailable.');
         }
-        if (bccomp($amount, $cfg['min_stake'], 6) < 0 || bccomp($amount, $cfg['max_stake'], 6) > 0) {
-            $this->fail("Stake must be between {$cfg['min_stake']} and {$cfg['max_stake']} USDT.", 'amount');
+        $settings = Setting::get('stake_settings', []);
+        $minStake = (string) ($settings['min_stake'] ?? $cfg['min_stake']);
+        $maxStake = (string) ($settings['max_stake'] ?? $cfg['max_stake']);
+        if (bccomp($amount, $minStake, 6) < 0 || bccomp($amount, $maxStake, 6) > 0) {
+            $this->fail("Stake must be between {$minStake} and {$maxStake} USDT.", 'amount');
         }
 
         $p = $this->profile($u);

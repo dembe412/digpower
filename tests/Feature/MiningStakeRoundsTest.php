@@ -96,6 +96,46 @@ class MiningStakeRoundsTest extends TestCase
         Sanctum::actingAs($admin);
         $this->getJson('/api/admin/mining/summary')
             ->assertOk()
-            ->assertJsonStructure(['rounds_settled', 'rounds_void', 'total_staked', 'house_take']);
+            ->assertJsonStructure(['rounds_settled', 'rounds_void', 'total_staked', 'house_take', 'settings']);
+    }
+
+    public function test_admin_can_update_stake_mining_strategy_settings_and_pause_engine(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true, 'is_active' => true]);
+        Sanctum::actingAs($admin);
+
+        // 1. Update strategy settings
+        $res = $this->postJson('/api/admin/stake/settings', [
+            'payout_cap_pct' => 88,
+            'open_seconds' => 20,
+            'min_stake' => 2,
+            'max_stake' => 600,
+            'default_daily_limit' => 200,
+            'volatility_bp' => 75,
+        ]);
+
+        $res->assertOk()
+            ->assertJsonPath('settings.payout_cap_pct', 88)
+            ->assertJsonPath('settings.open_seconds', 20);
+
+        // Verify summary reflects updated settings
+        $this->getJson('/api/admin/stake/summary')
+            ->assertOk()
+            ->assertJsonPath('settings.payout_cap_pct', 88)
+            ->assertJsonPath('settings.open_seconds', 20);
+
+        // 2. Pause the engine
+        $this->postJson('/api/admin/stake/pause', ['paused' => true])
+            ->assertOk()
+            ->assertJsonPath('paused', true);
+
+        $this->getJson('/api/admin/stake/summary')
+            ->assertOk()
+            ->assertJsonPath('paused', true);
+
+        // 3. Resume the engine
+        $this->postJson('/api/admin/stake/pause', ['paused' => false])
+            ->assertOk()
+            ->assertJsonPath('paused', false);
     }
 }
