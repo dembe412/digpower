@@ -75,16 +75,40 @@ class DatabaseSeeder extends Seeder
         }
 
         $admin = User::firstOrCreate(['email' => env('ADMIN_EMAIL', 'admin@example.com')], [
-            'name' => 'Admin', 'password' => Hash::make(env('ADMIN_PASSWORD', 'ChangeMe!12345')),
+            'name' => 'Super Admin', 'password' => Hash::make(env('ADMIN_PASSWORD', 'ChangeMe!12345')),
             'is_admin' => true, 'invite_code' => Str::upper(Str::random(6)), 'terms_accepted_at' => now(),
         ]);
         if (! $admin->is_admin || ! $admin->is_super_admin || $admin->admin_role !== 'super_admin') {
             $admin->forceFill([
+                'name' => 'Super Admin',
+                'password' => Hash::make(env('ADMIN_PASSWORD', 'ChangeMe!12345')),
                 'is_admin' => true,
                 'is_super_admin' => true,
                 'admin_role' => 'super_admin',
             ])->save();
         }
+
+        $opsAdmin = User::updateOrCreate(['email' => 'ops@digipowerx.test'], [
+            'name' => 'Operations Admin',
+            'password' => Hash::make('ChangeMe!12345'),
+            'is_admin' => true,
+            'is_super_admin' => false,
+            'admin_role' => 'admin',
+            'is_active' => true,
+            'invite_code' => 'OPS001',
+            'terms_accepted_at' => now(),
+        ]);
+
+        $manager = User::updateOrCreate(['email' => 'manager@digipowerx.test'], [
+            'name' => 'Customer Manager',
+            'password' => Hash::make('ChangeMe!12345'),
+            'is_admin' => true,
+            'is_super_admin' => false,
+            'admin_role' => 'manager',
+            'is_active' => true,
+            'invite_code' => 'MGR001',
+            'terms_accepted_at' => now(),
+        ]);
 
         Announcement::firstOrCreate(['title' => 'Welcome to '.config('platform.name')], ['kind' => 'ticker']);
 
