@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Rounded dark container with lime border -->
+  <rect x="5" y="5" width="54" height="54" rx="14" fill="#101312" stroke="#8e9c5e" stroke-width="3"/>
+  <!-- 3 rising bars with rounded caps -->
+  <!-- Short bar (left) -->
+  <rect x="15" y="33" width="8" height="16" rx="4" fill="#d3ef75" opacity="0.55"/>
+  <!-- Medium bar (middle) -->
+  <rect x="28" y="22" width="8" height="27" rx="4" fill="#d3ef75" opacity="0.80"/>
+  <!-- Tall bar (right) -->
+  <rect x="41" y="12" width="8" height="37" rx="4" fill="#d3ef75" opacity="1.00"/>
+</svg>
