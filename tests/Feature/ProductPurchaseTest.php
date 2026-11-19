@@ -193,4 +193,35 @@ class ProductPurchaseTest extends TestCase
         $this->postJson("/api/purchases/{$purchase['id']}/cash-out", ['network' => 'TRC20', 'address' => str_repeat('A', 20)])
             ->assertForbidden();
     }
+
+    public function test_subsequent_or_later_product_purchases_do_not_pay_referral_rebates(): void
+    {
+        $sponsor = User::factory()->create(['is_active' => true]);
+        $member = User::factory()->create(['is_active' => true, 'referrer_id' => $sponsor->id, 'invest_balance' => 200]);
+        $admin = User::factory()->create(['is_admin' => true, 'is_active' => true]);
+
+        $product1 = Product::create(['code' => 'FIRST', 'name' => 'First Product', 'cost_price' => 50, 'daily_income' => 1, 'duration_days' => 30, 'is_active' => true]);
+        $product2 = Product::create(['code' => 'SECOND', 'name' => 'Second Product', 'cost_price' => 80, 'daily_income' => 2, 'duration_days' => 30, 'is_active' => true]);
+
+        // Purchase 1: Member buys their very first product (10% rebate of 50 = 5)
+        Sanctum::actingAs($member);
+        $purchase1 = $this->postJson("/api/products/{$product1->id}/purchases", ['transaction_id' => 'TX-FIRST'])->json();
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/admin/purchases/{$purchase1['id']}/activate")->assertOk();
+
+        $this->assertSame('5', (string) $sponsor->fresh()->commission_balance);
+        $this->assertDatabaseCount('transactions', 1);
+
+        // Purchase 2: Same member buys a second (subsequent) product later
+        Sanctum::actingAs($member);
+        $purchase2 = $this->postJson("/api/products/{$product2->id}/purchases", ['transaction_id' => 'TX-SECOND'])->json();
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/admin/purchases/{$purchase2['id']}/activate")->assertOk();
+
+        // Sponsor commission MUST remain 5, NO new referral transactions created for later products
+        $this->assertSame('5', (string) $sponsor->fresh()->commission_balance);
+        $this->assertDatabaseCount('transactions', 1);
+    }
 }

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Deposit;
 use App\Models\Purchase;
+use App\Models\Transaction;
 use App\Models\User;
 use App\Models\Withdrawal;
 use Carbon\Carbon;
@@ -34,10 +35,38 @@ class ReferralService
 
     }
 
-    /** Reward the upline once when a manually reviewed product purchase is activated. */
+    /** Reward the upline strictly only on the member's first product purchase. */
     public function payPurchaseRewards(Purchase $purchase): void
     {
         $user = $purchase->user;
+        if (! $user) {
+            return;
+        }
+
+        // 1. Only pay referral rebates on the member's first product purchase (never on subsequent/later products)
+        $alreadyRewarded = Transaction::where('type', 'referral')
+            ->where(function ($query) use ($user) {
+                $query->where('meta->from_user', $user->id)
+                    ->orWhere('meta->from_user', (string) $user->id);
+            })
+            ->where('meta->source', 'product_purchase')
+            ->exists();
+
+        if ($alreadyRewarded) {
+            return;
+        }
+
+        // 2. Also ensure the user does not have any prior activated purchase
+        $hasPriorActivated = Purchase::where('user_id', $user->id)
+            ->where('id', '!=', $purchase->id)
+            ->whereNotNull('activated_at')
+            ->where('status', '!=', 'rejected')
+            ->exists();
+
+        if ($hasPriorActivated) {
+            return;
+        }
+
         $cursor = $user;
 
         foreach (config('platform.referral_rates') as $level => $rate) {
