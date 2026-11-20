@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'google_search_console' => [
+        'verification_token' => env('GOOGLE_SITE_VERIFICATION'),
+        'verification_file' => env('GOOGLE_SITE_VERIFICATION_FILE'),
+    ],
+
 ];
