@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Models\Withdrawal;
+use App\Modules\StakeRounds\Models\Stake;
+use App\Modules\StakeRounds\Models\StakeRound;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -63,7 +65,7 @@ class HomeExperienceTest extends TestCase
             ->assertJsonPath('withdraw_log.1.avatar_url', null);
     }
 
-    public function test_homepage_payload_includes_forex_rates_and_top_miners(): void
+    public function test_homepage_payload_includes_forex_rates_and_empty_top_miners_without_auto_seeding(): void
     {
         $response = $this->getJson('/api/home-public')->assertOk();
 
@@ -77,21 +79,49 @@ class HomeExperienceTest extends TestCase
                     'EUR' => ['currency', 'rate', 'formatted', 'change_pct'],
                 ],
             ],
-            'top_miners' => [
-                '*' => [
-                    'rank',
-                    'user',
-                    'machine',
-                    'hashrate',
-                    'daily_output',
-                    'total_mined',
-                    'status',
-                ],
-            ],
+            'top_miners',
             'prices',
         ]);
 
-        $this->assertNotEmpty($response->json('top_miners'));
+        $this->assertSame([], $response->json('top_miners'));
+        $this->assertSame(0, User::count());
+        $this->assertSame(0, Stake::count());
         $this->assertNotEmpty($response->json('prices'));
+    }
+
+    public function test_homepage_top_miners_returns_only_real_stake_participants(): void
+    {
+        $miner = User::factory()->create(['is_admin' => false, 'is_active' => true]);
+        $round = StakeRound::create([
+            'server_seed' => 'real-round-seed',
+            'server_seed_hash' => hash('sha256', 'real-round-seed'),
+            'status' => 'settled',
+            'volatility_bp' => 80,
+            'tick_ms' => 100,
+            'pool_total' => '50.000000',
+            'cap_total' => '45.000000',
+            'paid_total' => '40.000000',
+            'house_take' => '5.000000',
+            'opens_at' => now()->subMinutes(10),
+            'starts_at' => now()->subMinutes(9),
+            'ended_at' => now()->subMinutes(8),
+        ]);
+        Stake::create([
+            'stake_round_id' => $round->id,
+            'user_id' => $miner->id,
+            'side' => 'usd',
+            'amount' => '20.000000',
+            'payout' => '40.000000',
+            'cashout_multiplier_ppm' => 2000000,
+            'status' => 'cashed',
+            'cashed_at' => now()->subMinutes(8),
+        ]);
+
+        $response = $this->getJson('/api/home-public')->assertOk();
+
+        $response->assertJsonCount(1, 'top_miners')
+            ->assertJsonPath('top_miners.0.rank', 1)
+            ->assertJsonPath('top_miners.0.user', $miner->maskedIdentity())
+            ->assertJsonPath('top_miners.0.machine', 'USD Stake Round · 2.00x');
     }
 }
