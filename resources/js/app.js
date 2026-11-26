@@ -1628,6 +1628,7 @@ function renderAdmin() {
 function render() { updateIdentity(); if (state.page === 'products' || state.page === 'vip') renderProducts(); else if (state.page === 'mining') renderMining(); else if (state.page === 'chat') renderChat(); else if (state.page === 'team') renderTeam(); else if (state.page === 'me') renderMe(); else if (state.page === 'admin') renderAdmin(); else renderHome(); }
 
 async function loadPage(page = state.page) {
+	closeModal();
 	state.page = page; setNav(); pageLoading();
 	if (page !== 'mining' && state.miningPollTimer) {
 		clearInterval(state.miningPollTimer);
@@ -2017,7 +2018,7 @@ async function submitAction(form) {
 
 document.addEventListener('click', async (event) => {
 	const pageButton = event.target.closest('[data-page]');
-	if (pageButton) { await loadPage(pageButton.dataset.page); return; }
+	if (pageButton) { closeModal(); await loadPage(pageButton.dataset.page); return; }
 	const levelButton = event.target.closest('[data-team-level]');
 	if (levelButton) { state.teamLevel = Number(levelButton.dataset.teamLevel); state.teamMembersPage = 1; await loadPage('team'); return; }
 	const statusButton = event.target.closest('[data-mining-status]');
