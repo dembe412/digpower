@@ -79,14 +79,27 @@ class DatabaseSeeder extends Seeder
         $isProduction = app()->isProduction();
 
         // Remove old test staff accounts before seeding the 3 new staff
-        $oldStaff = User::whereIn('email', ['admin@example.com', 'admin@digipowerx.test', 'ops@digipowerx.test', 'manager@digipowerx.test'])->get();
+        $oldStaff = User::whereIn('email', [
+            'admin@example.com',
+            'admin@digipowerx.test',
+            'ops@digipowerx.test',
+            'manager@digipowerx.test',
+            'edrinealwin@gmail.com',
+        ])->orWhere('name', 'like', '%edrine%')
+            ->orWhere('phone', 'like', '%edrine%')
+            ->get();
         foreach ($oldStaff as $old) {
             $old->update(['invite_code' => 'OLD_'.$old->id.'_'.Str::random(4)]);
             $old->delete();
         }
 
+        $adminId = env('ADMIN_IDENTIFIER', env('ADMIN_EMAIL'));
+        if ($adminId === 'edrinealwin@gmail.com') {
+            $adminId = null;
+        }
+
         $superAdmin = $this->seedAdminAccount(
-            identifier: $isProduction ? env('ADMIN_IDENTIFIER', env('ADMIN_EMAIL')) : env('ADMIN_IDENTIFIER', env('ADMIN_EMAIL', 'brandon')),
+            identifier: $isProduction ? $adminId : ($adminId ?: 'brandon'),
             password: $isProduction ? env('ADMIN_PASSWORD') : env('ADMIN_PASSWORD', 'brandon256@#'),
             name: 'brandon',
             role: 'super_admin',

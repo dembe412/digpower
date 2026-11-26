@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Deposit;
+use App\Models\Setting;
 use App\Services\DepositService;
 use Illuminate\Http\Request;
 
@@ -10,7 +11,7 @@ class DepositController extends Controller
 {
     public function options()
     {
-        $methods = config('payments.methods', []);
+        $methods = Setting::get('payment_methods') ?: config('payments.methods', []);
         $nets = collect(config('platform.deposit.networks'))->filter()->keys()->values();
 
         return response()->json([
@@ -29,7 +30,8 @@ class DepositController extends Controller
     /** Declare intent / submit deposit payment proof (TLS flow supported). */
     public function store(Request $r)
     {
-        $allowedMethods = array_keys(config('payments.methods', []));
+        $methods = Setting::get('payment_methods') ?: config('payments.methods', []);
+        $allowedMethods = array_keys($methods);
         $allowedNets = array_keys(config('platform.deposit.networks', []));
         $allKeys = array_unique(array_merge($allowedMethods, $allowedNets));
 
@@ -43,10 +45,10 @@ class DepositController extends Controller
         ]);
 
         $selectedKey = $d['payment_method'] ?? $d['network'] ?? ($allowedMethods[0] ?? 'mtn');
-        $methodConfig = config("payments.methods.{$selectedKey}");
+        $methodConfig = $methods[$selectedKey] ?? config("payments.methods.{$selectedKey}");
         $cryptoAddr = config("platform.deposit.networks.{$selectedKey}");
 
-        $addr = $methodConfig['number'] ?? $cryptoAddr ?? config('payments.methods.trc20.number') ?? 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
+        $addr = $methodConfig['number'] ?? $cryptoAddr ?? ($methods['trc20']['number'] ?? 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t');
 
         $txid = $d['transaction_id'] ?? $d['txid'] ?? null;
         $payerName = $d['payer_name'] ?? $r->user()->name ?? $r->user()->phone ?? 'Member';

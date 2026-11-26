@@ -131,6 +131,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'active', 'admin'])->group(f
     Route::post('faqs', [AdminController::class, 'saveFaq']);
     Route::put('faqs/{faq}', [AdminController::class, 'saveFaq']);
     Route::delete('faqs/{faq}', [AdminController::class, 'deleteFaq']);
+    Route::get('payment-methods', [AdminController::class, 'paymentMethods']);
+    Route::put('payment-methods', [AdminController::class, 'savePaymentMethods']);
     Route::put('settings', [AdminController::class, 'saveSettings']);
     Route::put('vip-levels/{level}', [AdminController::class, 'saveVipLevel']);
 

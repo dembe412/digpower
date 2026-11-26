@@ -672,6 +672,40 @@ class AdminController extends Controller
         return response()->noContent();
     }
 
+    public function paymentMethods()
+    {
+        return response()->json(Setting::get('payment_methods') ?: config('payments.methods', []));
+    }
+
+    public function savePaymentMethods(Request $r)
+    {
+        abort_if($r->user()->isSuperAdmin(), 403, 'Super administrators have overarching oversight and cannot edit payment methods.');
+        abort_unless($r->user()->isOperationsAdmin(), 403, 'Only operational administrators can edit payment receiving methods.');
+
+        $current = Setting::get('payment_methods') ?: config('payments.methods', []);
+
+        $d = $r->validate([
+            'mtn_number' => ['required', 'string', 'max:50'],
+            'mtn_name' => ['required', 'string', 'max:100'],
+            'airtel_number' => ['required', 'string', 'max:50'],
+            'airtel_name' => ['required', 'string', 'max:100'],
+            'trc20_address' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $current['mtn']['number'] = $d['mtn_number'];
+        $current['mtn']['account_name'] = $d['mtn_name'];
+        $current['airtel']['number'] = $d['airtel_number'];
+        $current['airtel']['account_name'] = $d['airtel_name'];
+        if (! empty($d['trc20_address'])) {
+            $current['trc20']['number'] = $d['trc20_address'];
+        }
+
+        Setting::put('payment_methods', $current);
+        AuditLog::record($r->user()->id, 'payment_methods.updated', null, $d);
+
+        return response()->json(['message' => 'Payment receiving numbers updated successfully.', 'methods' => $current]);
+    }
+
     public function saveSettings(Request $r)
     {
         abort_if($r->user()->isSuperAdmin(), 403, 'Super administrators cannot edit platform settings.');

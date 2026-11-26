@@ -350,6 +350,9 @@ async function shareToSocial(platform) {
 
 function renderTopMinersHtml(topMinersList = []) {
 	const list = (topMinersList || []).slice(0, 10);
+	if (!list.length) {
+		return '';
+	}
 	const podiumMiners = list.slice(0, 3);
 
 	const podiumHtml = podiumMiners.length ? `
@@ -1343,6 +1346,33 @@ function renderAdmin() {
 				<div class="metric-card"><span>Net Position</span><strong>${amount(overview.net_position)} UGX</strong></div>
 			</section>
 
+			<section class="admin-section" style="background:#17221a;border:1px solid #25D36640;border-radius:10px;padding:16px 20px;margin-bottom:20px;">
+				<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+					<div>
+						<h2 style="font-size:15px;margin:0;display:flex;align-items:center;gap:8px;">📱 Receiving Deposit Numbers (MTN, Airtel, TRC20)</h2>
+						<p style="color:var(--muted);font-size:12px;margin:4px 0 0 0;">Official mobile money numbers and wallet addresses displayed to users for deposit payments.</p>
+					</div>
+					${isOpsAdmin ? `<button class="primary-button" data-action="edit-payment-methods" style="padding:6px 14px;font-size:12px;">Edit Numbers ⚙️</button>` : ''}
+				</div>
+				<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px;">
+					<div style="background:#101312;padding:10px 14px;border-radius:6px;border:1px solid var(--line);">
+						<small style="color:var(--lime);font-weight:700;">MTN Mobile Money</small>
+						<div style="font-size:14px;font-weight:700;margin-top:2px;">${safe(state.admin?.paymentMethods?.mtn?.number || '0770000000')}</div>
+						<div style="font-size:11px;color:var(--muted);">${safe(state.admin?.paymentMethods?.mtn?.account_name || 'DigiPowerX')}</div>
+					</div>
+					<div style="background:#101312;padding:10px 14px;border-radius:6px;border:1px solid var(--line);">
+						<small style="color:#ff6b6b;font-weight:700;">Airtel Money</small>
+						<div style="font-size:14px;font-weight:700;margin-top:2px;">${safe(state.admin?.paymentMethods?.airtel?.number || '0750000000')}</div>
+						<div style="font-size:11px;color:var(--muted);">${safe(state.admin?.paymentMethods?.airtel?.account_name || 'DigiPowerX')}</div>
+					</div>
+					<div style="background:#101312;padding:10px 14px;border-radius:6px;border:1px solid var(--line);">
+						<small style="color:var(--teal);font-weight:700;">USDT (TRC20)</small>
+						<div style="font-size:12px;font-weight:600;margin-top:2px;overflow:hidden;text-overflow:ellipsis;">${safe(state.admin?.paymentMethods?.trc20?.number || 'TR7NHqje...')}</div>
+						<div style="font-size:11px;color:var(--muted);">${safe(state.admin?.paymentMethods?.trc20?.account_name || 'DigiPowerX USDT')}</div>
+					</div>
+				</div>
+			</section>
+
 			<section class="admin-section">
 				<div class="section-heading"><div><h2>Deposits</h2><p>Review deposit transaction references and credit balances.</p></div></div>
 				<div class="admin-table">
@@ -1668,6 +1698,7 @@ async function loadPage(page = state.page) {
 				reqs.push(api(`admin/withdrawals?${txStatusQ}page=${state.adminWithdrawalPage || 1}`).catch(() => ({ data: [] })));
 				reqs.push(api('admin/stake/summary').catch(() => ({})));
 				reqs.push(api('admin/stake/rounds?page=1').catch(() => ({ data: [] })));
+				reqs.push(api('admin/payment-methods').catch(() => ({})));
 			}
 			if (role === 'super_admin') {
 				reqs.push(api('super-admin/admins').catch(() => []));
@@ -1689,9 +1720,10 @@ async function loadPage(page = state.page) {
 				state.admin.withdrawals = results[7] || { data: [] };
 				state.admin.stakeSummary = results[8] || {};
 				state.admin.stakeRounds = results[9] || { data: [] };
+				state.admin.paymentMethods = results[10] || {};
 			}
 			if (role === 'super_admin') {
-				state.admin.adminsList = results[10] || [];
+				state.admin.adminsList = results[11] || [];
 			}
 		}
 		else if (page === 'mining' && state.token) {
@@ -2257,6 +2289,25 @@ document.addEventListener('click', async (event) => {
 				await loadPage('admin');
 			}
 		}
+		else if (action === 'edit-payment-methods') {
+			const mtn = state.admin?.paymentMethods?.mtn || {};
+			const airtel = state.admin?.paymentMethods?.airtel || {};
+			const trc20 = state.admin?.paymentMethods?.trc20 || {};
+			showModal(`
+				<p class="eyebrow">Payment Receiving Configuration</p>
+				<h2 id="modal-title">Edit Deposit Payment Numbers</h2>
+				<p class="modal-intro">Update the official Mobile Money numbers and USDT wallet where customers send funds.</p>
+				<form class="form-stack" id="payment-methods-form">
+					<label class="form-field">MTN Mobile Money Number<input type="text" name="mtn_number" value="${safe(mtn.number || '')}" required placeholder="e.g. 0770000000"></label>
+					<label class="form-field">MTN Account Name<input type="text" name="mtn_name" value="${safe(mtn.account_name || '')}" required placeholder="e.g. DigiPowerX"></label>
+					<label class="form-field">Airtel Money Number<input type="text" name="airtel_number" value="${safe(airtel.number || '')}" required placeholder="e.g. 0750000000"></label>
+					<label class="form-field">Airtel Account Name<input type="text" name="airtel_name" value="${safe(airtel.account_name || '')}" required placeholder="e.g. DigiPowerX"></label>
+					<label class="form-field">USDT (TRC20) Wallet Address<input type="text" name="trc20_address" value="${safe(trc20.number || '')}" placeholder="e.g. TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"></label>
+					<p class="form-note" data-form-error></p>
+					<button class="primary-button" type="submit">Save Receiving Numbers</button>
+				</form>
+			`, 'edit-payment-methods');
+		}
 		else if (action === 'toggle-admin-user') {
 			await api(`super-admin/admins/${button.dataset.adminId}/toggle`, { method: 'POST' });
 			toast('Staff account status updated.');
@@ -2611,6 +2662,25 @@ document.addEventListener('submit', async (event) => {
 			closeModal();
 			toast(res.message || 'Conversion completed.');
 			await loadPage('mining');
+		} catch (error) {
+			errorElement.textContent = error.message;
+		} finally {
+			button.disabled = false;
+		}
+	}
+	else if (form.id === 'payment-methods-form') {
+		event.preventDefault();
+		const button = $('button[type="submit"]', form);
+		const errorElement = $('[data-form-error]', form);
+		button.disabled = true;
+		errorElement.textContent = '';
+		try {
+			const payload = Object.fromEntries(new FormData(form).entries());
+			const res = await api('admin/payment-methods', { method: 'PUT', body: JSON.stringify(payload) });
+			if (state.admin) state.admin.paymentMethods = res.methods;
+			closeModal();
+			toast('Deposit numbers updated successfully!');
+			await loadPage('admin');
 		} catch (error) {
 			errorElement.textContent = error.message;
 		} finally {
